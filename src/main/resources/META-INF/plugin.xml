@@ -5,7 +5,7 @@
 
     <!-- Public plugin name should be written in Title Case.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
-    <name>MCPExtensionDemo</name>
+    <name>MCP Extension Demo - Enhanced AST and Debug Tools</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
     <vendor url="https://www.yourcompany.com">YourCompany</vendor>
@@ -13,18 +13,34 @@
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enter short description for your plugin here.<br>
-        <em>most HTML tags may be used</em>
+        Enhanced MCP tools for AST analysis and debug inspection.<br>
+        <em>Provides advanced debugging tools, AST analysis, and code pattern detection for Java projects.</em>
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
-
+    <depends>com.intellij.modules.java</depends>
     <depends>com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
+        <!-- Original demo tool -->
         <mcpTool implementation="org.jetbrains.mcpextensiondemo.MyCustomTool"/>
+        
+        <!-- Debug Tools -->
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.debug.GetCurrentStackTraceTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.debug.GetDebugSessionInfoTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.debug.GetDebugSnapshotTool"/>
+        
+        <!-- Java AST Tools -->
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.GetJavaFileAstTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.GetClassHierarchyTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.GetMethodComplexityTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.DetectCodePatternsTool"/>
+        
+        <!-- Navigation Tools -->
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.common.GetSymbolAtPositionTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.common.FindAllReferencesTool"/>
     </extensions>
 
     <!-- Extension points defined by the plugin.

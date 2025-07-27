@@ -15,6 +15,14 @@ repositories {
     }
 }
 
+// Configure Java toolchain to use specific JDK
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+        vendor = JvmVendorSpec.ORACLE // or JvmVendorSpec.OPENJDK
+    }
+}
+
 // Configure IntelliJ Platform Gradle Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
 dependencies {
@@ -23,9 +31,14 @@ dependencies {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         plugin("com.intellij.mcpServer", "1.0.30")
 
-        // Add necessary plugin dependencies for compilation here, example:
-        // bundledPlugin("com.intellij.java")
+        // Add necessary plugin dependencies for compilation here
+        bundledPlugin("com.intellij.java")
     }
+    
+    // Test dependencies
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
+    testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.24")
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:1.9.24")
 }
 
 // this has to be compileOnly otherwise there is class collision for kotlinx serialization
@@ -41,7 +54,11 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Initial version
+            Enhanced MCP plugin with AST analysis and debugging tools:
+            - Debug session inspection tools
+            - Java AST analysis and complexity metrics
+            - Code pattern detection
+            - Symbol navigation and reference finding
         """.trimIndent()
     }
 }
@@ -51,6 +68,11 @@ tasks {
     withType<JavaCompile> {
         sourceCompatibility = "21"
         targetCompatibility = "21"
+    }
+    
+    // Configure test task
+    test {
+        useJUnitPlatform()
     }
 }
 
