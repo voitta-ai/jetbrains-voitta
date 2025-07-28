@@ -41,8 +41,8 @@
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
         
         <!-- Navigation Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetSymbolAtPositionTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.FindAllReferencesTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.GetSymbolAtPositionTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.FindAllReferencesTool"/>
     </extensions>
 
     <!-- Extension points defined by the plugin.
