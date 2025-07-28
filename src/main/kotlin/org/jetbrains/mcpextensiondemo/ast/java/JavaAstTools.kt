@@ -55,6 +55,24 @@ class GetJavaFileAstTool : AbstractMcpTool<JavaFileAstArgs>(JavaFileAstArgs.seri
             
             val classes = analyzeJavaFile(psiFile, args)
             val classesJson = classes.joinToString(",\n", prefix = "[", postfix = "]") { classNode ->
+                val methodsJson = if (args.includeMethodBodies) {
+                    classNode.methods.joinToString(",\n", prefix = "[", postfix = "]") { method ->
+                        """
+                        {
+                            "name": "${JsonUtils.escapeJson(method.name ?: "")}",
+                            "lineNumber": ${method.lineNumber ?: -1},
+                            "firstExecutableLineNumber": ${method.firstExecutableLineNumber ?: -1},
+                            "lastLineNumber": ${method.lastLineNumber ?: -1},
+                            "returnType": "${JsonUtils.escapeJson(method.returnType ?: "")}",
+                            "complexity": ${method.complexity ?: 1},
+                            "parameterCount": ${method.parameters.size},
+                            "isConstructor": ${method.isConstructor},
+                            "modifiers": [${method.modifiers.joinToString(",") { "\"$it\"" }}]
+                        }
+                        """.trimIndent()
+                    }
+                } else "[]"
+                
                 """
                 {
                     "name": "${JsonUtils.escapeJson(classNode.name ?: "")}",
@@ -67,7 +85,8 @@ class GetJavaFileAstTool : AbstractMcpTool<JavaFileAstArgs>(JavaFileAstArgs.seri
                     "isAbstract": ${classNode.isAbstract},
                     "packageName": "${classNode.packageName ?: ""}",
                     "methodCount": ${classNode.methods.size},
-                    "fieldCount": ${classNode.fields.size}
+                    "fieldCount": ${classNode.fields.size},
+                    "methods": $methodsJson
                 }
                 """.trimIndent()
             }
@@ -124,6 +143,8 @@ class GetJavaFileAstTool : AbstractMcpTool<JavaFileAstArgs>(JavaFileAstArgs.seri
             analyzeMethodBody(method.body!!)
         } else null
         
+        val lineRange = AstUtils.getMethodLineRange(method)
+        
         return MethodNode(
             name = method.name,
             returnType = AstUtils.typeToString(method.returnType),
@@ -137,7 +158,10 @@ class GetJavaFileAstTool : AbstractMcpTool<JavaFileAstArgs>(JavaFileAstArgs.seri
             isStatic = method.hasModifierProperty(PsiModifier.STATIC),
             isAbstract = method.hasModifierProperty(PsiModifier.ABSTRACT),
             throwsExceptions = AstUtils.getThrownExceptions(method),
-            lineNumber = AstUtils.getLineNumber(method)
+            lineNumber = AstUtils.getLineNumber(method),
+            firstExecutableLineNumber = lineRange.firstExecutableLineNumber,
+            lastLineNumber = lineRange.lastLineNumber,
+            bodyLineRange = lineRange
         )
     }
     
@@ -165,12 +189,17 @@ class GetJavaFileAstTool : AbstractMcpTool<JavaFileAstArgs>(JavaFileAstArgs.seri
         val children = PsiTreeUtil.getChildrenOfType(statement, PsiStatement::class.java)
             ?.map { analyzeStatement(it) } ?: emptyList()
         
+        val statementKind = AstUtils.getStatementKind(statement)
+        val isExecutable = !AstUtils.isNonExecutableStatement(statement)
+        
         return StatementNode(
             type = statement.javaClass.simpleName,
             text = AstUtils.createCodeSnippet(statement, 100),
             startOffset = statement.textRange.startOffset,
             endOffset = statement.textRange.endOffset,
             lineNumber = AstUtils.getLineNumber(statement),
+            isExecutable = isExecutable,
+            statementKind = statementKind,
             children = children
         )
     }
@@ -569,5 +598,195 @@ class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArg
                 suggestion = "Consider using a parameter object or builder pattern"
             ))
         }
+    }
+}
+
+@Serializable
+data class BreakpointSuggestionArgs(
+    val filePath: String,
+    val methodName: String? = null
+)
+
+class SuggestBreakpointLinesTool : AbstractMcpTool<BreakpointSuggestionArgs>(BreakpointSuggestionArgs.serializer()) {
+    override val name = "suggest_breakpoint_lines"
+    override val description = """
+        Suggests optimal line numbers for setting breakpoints in methods.
+        Returns first executable line, key decision points, and method entry/exit points.
+        
+        Parameters:
+        - filePath: Path to the Java file (relative to project root)
+        - methodName: Specific method name (optional, if null analyzes all methods)
+        
+        Returns: List of BreakpointSuggestion with recommended breakpoint locations
+        Error: File not found, not a Java file, or analysis errors
+    """
+    
+    override fun handle(project: Project, args: BreakpointSuggestionArgs): Response {
+        return try {
+            val projectPath = Paths.get(project.basePath ?: "")
+            val filePath = projectPath.resolve(args.filePath.removePrefix("/"))
+            
+            val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath.toString())
+                ?: return Response(error = "File not found: ${args.filePath}")
+            
+            val psiFile = PsiManager.getInstance(project).findFile(virtualFile)
+                ?: return Response(error = "Could not parse file: ${args.filePath}")
+            
+            if (psiFile !is PsiJavaFile) {
+                return Response(error = "Not a Java file: ${args.filePath}")
+            }
+            
+            val suggestions = analyzeBreakpointSuggestions(psiFile, args.methodName)
+            val suggestionsJson = suggestions.joinToString(",\n", prefix = "[", postfix = "]") { suggestion ->
+                """
+                {
+                    "lineNumber": ${suggestion.lineNumber},
+                    "reason": "${suggestion.reason}",
+                    "description": "${JsonUtils.escapeJson(suggestion.description)}",
+                    "priority": "${suggestion.priority}"
+                }
+                """.trimIndent()
+            }
+            Response(suggestionsJson)
+            
+        } catch (e: Exception) {
+            Response(error = "Error analyzing breakpoint suggestions: ${e.message}")
+        }
+    }
+    
+    private fun analyzeBreakpointSuggestions(javaFile: PsiJavaFile, methodName: String?): List<BreakpointSuggestion> {
+        val allSuggestions = mutableListOf<BreakpointSuggestion>()
+        
+        javaFile.classes.forEach { psiClass ->
+            psiClass.methods.forEach { method ->
+                if (methodName == null || method.name == methodName) {
+                    val methodSuggestions = AstUtils.suggestBreakpointLines(method)
+                    allSuggestions.addAll(methodSuggestions)
+                }
+            }
+        }
+        
+        return allSuggestions.sortedBy { it.lineNumber }
+    }
+}
+
+@Serializable
+data class MethodDetailsArgs(
+    val filePath: String,
+    val methodName: String? = null
+)
+
+class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArgs.serializer()) {
+    override val name = "get_method_details"
+    override val description = """
+        Get detailed information about all methods in a Java file including:
+        - Method signature line number
+        - First executable line number  
+        - Method body line range
+        - Complexity metrics
+        - Parameter details
+        - Breakpoint suggestions
+        
+        Parameters:
+        - filePath: Path to the Java file (relative to project root)
+        - methodName: Specific method name (optional, if null analyzes all methods)
+        
+        Returns: List of MethodDetails with comprehensive method information
+        Error: File not found, not a Java file, or analysis errors
+    """
+    
+    override fun handle(project: Project, args: MethodDetailsArgs): Response {
+        return try {
+            val projectPath = Paths.get(project.basePath ?: "")
+            val filePath = projectPath.resolve(args.filePath.removePrefix("/"))
+            
+            val virtualFile = LocalFileSystem.getInstance().findFileByPath(filePath.toString())
+                ?: return Response(error = "File not found: ${args.filePath}")
+            
+            val psiFile = PsiManager.getInstance(project).findFile(virtualFile)
+                ?: return Response(error = "Could not parse file: ${args.filePath}")
+            
+            if (psiFile !is PsiJavaFile) {
+                return Response(error = "Not a Java file: ${args.filePath}")
+            }
+            
+            val methodDetails = analyzeMethodDetails(psiFile, args.methodName, args.filePath)
+            val detailsJson = methodDetails.joinToString(",\n", prefix = "[", postfix = "]") { details ->
+                val suggestionsJson = details.breakpointSuggestions.joinToString(",\n", prefix = "[", postfix = "]") { suggestion ->
+                    """
+                    {
+                        "lineNumber": ${suggestion.lineNumber},
+                        "reason": "${suggestion.reason}",
+                        "description": "${JsonUtils.escapeJson(suggestion.description)}",
+                        "priority": "${suggestion.priority}"
+                    }
+                    """.trimIndent()
+                }
+                
+                """
+                {
+                    "name": "${JsonUtils.escapeJson(details.name)}",
+                    "className": "${JsonUtils.escapeJson(details.className)}",
+                    "signature": "${JsonUtils.escapeJson(details.signature)}",
+                    "file": "${JsonUtils.escapeJson(details.file)}",
+                    "lineRange": {
+                        "signatureLineNumber": ${details.lineRange.signatureLineNumber},
+                        "firstExecutableLineNumber": ${details.lineRange.firstExecutableLineNumber ?: -1},
+                        "lastLineNumber": ${details.lineRange.lastLineNumber},
+                        "bodyStartLine": ${details.lineRange.bodyStartLine ?: -1},
+                        "bodyEndLine": ${details.lineRange.bodyEndLine ?: -1}
+                    },
+                    "complexity": {
+                        "cyclomaticComplexity": ${details.complexity.cyclomaticComplexity},
+                        "linesOfCode": ${details.complexity.linesOfCode},
+                        "parameterCount": ${details.complexity.parameterCount}
+                    },
+                    "breakpointSuggestions": $suggestionsJson,
+                    "modifiers": [${details.modifiers.joinToString(",") { "\"$it\"" }}]
+                }
+                """.trimIndent()
+            }
+            Response(detailsJson)
+            
+        } catch (e: Exception) {
+            Response(error = "Error analyzing method details: ${e.message}")
+        }
+    }
+    
+    private fun analyzeMethodDetails(javaFile: PsiJavaFile, methodName: String?, filePath: String): List<MethodDetails> {
+        val methodDetailsList = mutableListOf<MethodDetails>()
+        
+        javaFile.classes.forEach { psiClass ->
+            psiClass.methods.forEach { method ->
+                if (methodName == null || method.name == methodName) {
+                    val lineRange = AstUtils.getMethodLineRange(method)
+                    val breakpointSuggestions = AstUtils.suggestBreakpointLines(method)
+                    val complexity = ComplexityMetric(
+                        methodName = method.name,
+                        className = psiClass.name ?: "Unknown",
+                        cyclomaticComplexity = AstUtils.calculateComplexity(method),
+                        linesOfCode = AstUtils.countLinesOfCode(method),
+                        parameterCount = method.parameterList.parametersCount,
+                        file = filePath,
+                        lineNumber = AstUtils.getLineNumber(method)
+                    )
+                    
+                    val details = MethodDetails(
+                        name = method.name,
+                        className = psiClass.name ?: "Unknown",
+                        signature = AstUtils.formatSignature(method),
+                        file = filePath,
+                        lineRange = lineRange,
+                        complexity = complexity,
+                        breakpointSuggestions = breakpointSuggestions,
+                        parameters = AstUtils.getMethodParameters(method),
+                        modifiers = AstUtils.extractModifiers(method.modifierList)
+                    )
+                    methodDetailsList.add(details)
+                }
+            }
+        }
+        
+        return methodDetailsList
     }
 }

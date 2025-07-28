@@ -38,6 +38,10 @@
         <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.GetMethodComplexityTool"/>
         <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.DetectCodePatternsTool"/>
         
+        <!-- Enhanced Method Analysis Tools -->
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.SuggestBreakpointLinesTool"/>
+        <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.java.GetMethodDetailsTool"/>
+        
         <!-- Navigation Tools -->
         <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.common.GetSymbolAtPositionTool"/>
         <mcpTool implementation="org.jetbrains.mcpextensiondemo.ast.common.FindAllReferencesTool"/>

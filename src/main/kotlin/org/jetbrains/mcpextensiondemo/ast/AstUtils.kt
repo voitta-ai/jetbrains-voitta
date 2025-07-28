@@ -285,4 +285,151 @@ object AstUtils {
             !trimmed.startsWith("*")
         }
     }
+    
+    /**
+     * Gets the line number of the first executable statement in a method
+     */
+    fun getFirstExecutableLineNumber(method: PsiMethod): Int? {
+        val body = method.body ?: return null
+        
+        // Find the first statement that's not just whitespace/comments
+        val firstStatement = body.statements.firstOrNull { statement ->
+            !isNonExecutableStatement(statement)
+        } ?: return null
+        
+        return getLineNumber(firstStatement)
+    }
+    
+    /**
+     * Gets the last line number of a method
+     */
+    fun getLastLineNumber(method: PsiMethod): Int {
+        val document = getDocument(method) ?: return -1
+        val endOffset = method.textRange.endOffset
+        return document.getLineNumber(endOffset) + 1
+    }
+    
+    /**
+     * Gets complete line range information for a method
+     */
+    fun getMethodLineRange(method: PsiMethod): MethodLineRange {
+        val signatureLineNumber = getLineNumber(method)
+        val firstExecutableLineNumber = getFirstExecutableLineNumber(method)
+        val lastLineNumber = getLastLineNumber(method)
+        
+        val body = method.body
+        val bodyStartLine = body?.let { getLineNumber(it) }
+        val bodyEndLine = body?.let { 
+            val document = getDocument(method) ?: return@let null
+            document.getLineNumber(it.textRange.endOffset) + 1
+        }
+        
+        return MethodLineRange(
+            signatureLineNumber = signatureLineNumber,
+            firstExecutableLineNumber = firstExecutableLineNumber,
+            lastLineNumber = lastLineNumber,
+            bodyStartLine = bodyStartLine,
+            bodyEndLine = bodyEndLine
+        )
+    }
+    
+    /**
+     * Determines if a statement is non-executable (like variable declarations without initialization)
+     */
+    fun isNonExecutableStatement(statement: PsiStatement): Boolean {
+        return when (statement) {
+            is PsiDeclarationStatement -> {
+                // Check if it's just a declaration without initialization
+                statement.declaredElements.all { element ->
+                    element is PsiLocalVariable && (element as PsiLocalVariable).initializer == null
+                }
+            }
+            is PsiEmptyStatement -> true
+            else -> false
+        }
+    }
+    
+    /**
+     * Analyzes statement type for better categorization
+     */
+    fun getStatementKind(statement: PsiStatement): String {
+        return when (statement) {
+            is PsiDeclarationStatement -> "DECLARATION"
+            is PsiExpressionStatement -> {
+                when (val expr = statement.expression) {
+                    is PsiAssignmentExpression -> "ASSIGNMENT"
+                    is PsiMethodCallExpression -> "METHOD_CALL"
+                    is PsiNewExpression -> "OBJECT_CREATION"
+                    else -> "EXPRESSION"
+                }
+            }
+            is PsiIfStatement -> "IF_STATEMENT"
+            is PsiForStatement -> "FOR_LOOP"
+            is PsiWhileStatement -> "WHILE_LOOP"
+            is PsiForeachStatement -> "FOREACH_LOOP"
+            is PsiReturnStatement -> "RETURN"
+            is PsiThrowStatement -> "THROW"
+            is PsiTryStatement -> "TRY_CATCH"
+            is PsiSwitchStatement -> "SWITCH"
+            is PsiBreakStatement -> "BREAK"
+            is PsiContinueStatement -> "CONTINUE"
+            is PsiSynchronizedStatement -> "SYNCHRONIZED"
+            is PsiBlockStatement -> "BLOCK"
+            is PsiEmptyStatement -> "EMPTY"
+            else -> statement.javaClass.simpleName.removeSuffix("Impl").removeSuffix("Statement")
+        }
+    }
+    
+    /**
+     * Suggests optimal breakpoint locations in a method
+     */
+    fun suggestBreakpointLines(method: PsiMethod): List<BreakpointSuggestion> {
+        val suggestions = mutableListOf<BreakpointSuggestion>()
+        val body = method.body ?: return suggestions
+        
+        // First executable line (highest priority)
+        getFirstExecutableLineNumber(method)?.let { line ->
+            suggestions.add(BreakpointSuggestion(
+                lineNumber = line,
+                reason = "FIRST_EXECUTABLE",
+                description = "First executable statement in method",
+                priority = "HIGH"
+            ))
+        }
+        
+        // Decision points and key statements
+        body.accept(object : JavaRecursiveElementVisitor() {
+            override fun visitIfStatement(statement: PsiIfStatement) {
+                suggestions.add(BreakpointSuggestion(
+                    lineNumber = getLineNumber(statement),
+                    reason = "DECISION_POINT",
+                    description = "Conditional branch point",
+                    priority = "NORMAL"
+                ))
+                super.visitIfStatement(statement)
+            }
+            
+            override fun visitForStatement(statement: PsiForStatement) {
+                suggestions.add(BreakpointSuggestion(
+                    lineNumber = getLineNumber(statement),
+                    reason = "LOOP_START",
+                    description = "Loop entry point",
+                    priority = "NORMAL"
+                ))
+                super.visitForStatement(statement)
+            }
+            
+            override fun visitReturnStatement(statement: PsiReturnStatement) {
+                suggestions.add(BreakpointSuggestion(
+                    lineNumber = getLineNumber(statement),
+                    reason = "METHOD_EXIT",
+                    description = "Method return point",
+                    priority = "NORMAL"
+                ))
+                super.visitReturnStatement(statement)
+            }
+        })
+        
+        return suggestions.sortedBy { it.lineNumber }
+    }
 }

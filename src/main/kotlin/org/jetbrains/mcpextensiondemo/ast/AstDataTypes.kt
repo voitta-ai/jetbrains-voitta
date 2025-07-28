@@ -38,7 +38,10 @@ data class MethodNode(
     val isStatic: Boolean = false,
     val isAbstract: Boolean = false,
     val throwsExceptions: List<String> = emptyList(),
-    val lineNumber: Int? = null
+    val lineNumber: Int? = null,  // Method signature line
+    val firstExecutableLineNumber: Int? = null,  // First executable line
+    val lastLineNumber: Int? = null,  // Method end line
+    val bodyLineRange: MethodLineRange? = null  // Complete line range info
 )
 
 @Serializable
@@ -61,6 +64,8 @@ data class StatementNode(
     val startOffset: Int,
     val endOffset: Int,
     val lineNumber: Int? = null,
+    val isExecutable: Boolean = true,  // Distinguish executable vs declaration
+    val statementKind: String? = null,  // "DECLARATION", "ASSIGNMENT", "METHOD_CALL", etc.
     val children: List<StatementNode> = emptyList()
 )
 
@@ -213,4 +218,35 @@ data class AstError(
     val details: Map<String, String> = emptyMap(),
     val file: String? = null,
     val line: Int? = null
+)
+
+// New data structures for enhanced method analysis
+@Serializable
+data class MethodLineRange(
+    val signatureLineNumber: Int,
+    val firstExecutableLineNumber: Int?,
+    val lastLineNumber: Int,
+    val bodyStartLine: Int?,
+    val bodyEndLine: Int?
+)
+
+@Serializable
+data class BreakpointSuggestion(
+    val lineNumber: Int,
+    val reason: String,  // "FIRST_EXECUTABLE", "DECISION_POINT", "METHOD_EXIT", etc.
+    val description: String,
+    val priority: String = "NORMAL"  // "HIGH", "NORMAL", "LOW"
+)
+
+@Serializable
+data class MethodDetails(
+    val name: String,
+    val className: String,
+    val signature: String,
+    val file: String,
+    val lineRange: MethodLineRange,
+    val complexity: ComplexityMetric,
+    val breakpointSuggestions: List<BreakpointSuggestion> = emptyList(),
+    val parameters: List<ParameterNode> = emptyList(),
+    val modifiers: List<String> = emptyList()
 )
