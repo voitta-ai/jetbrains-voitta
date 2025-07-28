@@ -5,7 +5,7 @@ plugins {
     kotlin("plugin.serialization") version "1.9.24"
 }
 
-group = "org.jetbrains"
+group = "ai.voitta"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -54,11 +54,12 @@ intellijPlatform {
         }
 
         changeNotes = """
-            Enhanced MCP plugin with AST analysis and debugging tools:
+            JetbrainsVoitta - Enhanced MCP plugin with AST analysis and debugging tools:
             - Debug session inspection tools
             - Java AST analysis and complexity metrics
             - Code pattern detection
             - Symbol navigation and reference finding
+            - Powered by Voitta AI
         """.trimIndent()
     }
 }
