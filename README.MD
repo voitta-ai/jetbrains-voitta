@@ -8,13 +8,11 @@ This project was inspired by the [original demo plugin](https://github.com/MaXal
 
  * [JetBrains MCP Server](https://plugins.jetbrains.com/plugin/26071-mcp-server) ([GitHub](https://github.com/JetBrains/mcp-jetbrains))
  * [JetBrains Claude Code Beta](https://plugins.jetbrains.com/plugin/27310-claude-code-beta-)
- 
 
 ## Sample debug sessions
 
  * [Debug session 1](https://claude.ai/share/78195a43-8510-4a2b-929f-9fa8b30bc630) - some limitations found.
  * [Debug session 2](https://claude.ai/share/80a8faeb-74e3-48ed-8502-2f0c28c35e25) - much better.
- * 
 
 ## Development
 
