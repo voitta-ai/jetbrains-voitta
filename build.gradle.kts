@@ -35,10 +35,6 @@ dependencies {
         bundledPlugin("com.intellij.java")
     }
     
-    // Test dependencies
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.0")
-    testImplementation("org.jetbrains.kotlin:kotlin-test:1.9.24")
-    testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:1.9.24")
 }
 
 // this has to be compileOnly otherwise there is class collision for kotlinx serialization
@@ -71,10 +67,6 @@ tasks {
         targetCompatibility = "21"
     }
     
-    // Configure test task
-    test {
-        useJUnitPlatform()
-    }
 }
 
 kotlin {
