@@ -19,6 +19,7 @@ import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
 import com.sun.jdi.*
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import com.intellij.openapi.diagnostic.Logger
 
 /**
  * Enhanced variable evaluation tools for detailed debugging inspection
@@ -217,6 +218,10 @@ class EvaluateExpressionTool : AbstractMcpTool<EvaluateExpressionArgs>(EvaluateE
 }
 
 class GetFrameVariablesTool : AbstractMcpTool<GetFrameVariablesArgs>(GetFrameVariablesArgs.serializer()) {
+    companion object {
+        private val LOG = Logger.getInstance(GetFrameVariablesTool::class.java)
+    }
+    
     override val name = "get_frame_variables"
     override val description = """
         Retrieves all variables available in a specific stack frame with detailed information.
@@ -283,17 +288,36 @@ class GetFrameVariablesTool : AbstractMcpTool<GetFrameVariablesArgs>(GetFrameVar
         try {
             val executionStack = session.suspendContext?.activeExecutionStack ?: return variables
             
-            val frame = if (args.frameIndex == 0) {
-                executionStack.topFrame
+            LOG.info("Getting variables for frame index ${args.frameIndex}")
+            
+            val stackFrameProxy = if (args.frameIndex == 0) {
+                val topFrame = executionStack.topFrame
+                if (topFrame is JavaStackFrame) {
+                    topFrame.stackFrameProxy
+                } else {
+                    LOG.warn("Top frame is not a JavaStackFrame: ${topFrame?.javaClass?.simpleName}")
+                    return variables
+                }
             } else {
-                // For non-top frames, we'd need more complex navigation
-                executionStack.topFrame
+                // Use JDI to access frames by index
+                getStackFrameProxyByIndex(session, args.frameIndex)
+                    ?: run {
+                        LOG.warn("Could not access frame at index ${args.frameIndex}")
+                        variables.add(VariableNode(
+                            name = "Frame Access",
+                            value = "Frame at index ${args.frameIndex} is not accessible. Only ${getAvailableFrameCount(session)} frames available.",
+                            type = "Error",
+                            scope = "LOCAL",
+                            isExpandable = false,
+                            isPrimitive = false
+                        ))
+                        return variables
+                    }
             }
             
-            frame ?: return variables
+            LOG.info("Successfully obtained stack frame proxy for index ${args.frameIndex}")
             
-            if (frame is JavaStackFrame) {
-                val stackFrameProxy = frame.stackFrameProxy
+            if (stackFrameProxy != null) {
                 
                 // Get local variables
                 if (args.includeLocals) {
@@ -547,6 +571,60 @@ class GetFrameVariablesTool : AbstractMcpTool<GetFrameVariablesArgs>(GetFrameVar
             }
         } catch (e: Exception) {
             "<error>"
+        }
+    }
+    
+    /**
+     * Get a StackFrameProxyImpl by index using direct JDI access
+     */
+    private fun getStackFrameProxyByIndex(session: XDebugSession, frameIndex: Int): StackFrameProxyImpl? {
+        return try {
+            val executionStack = session.suspendContext?.activeExecutionStack
+            val topFrame = executionStack?.topFrame
+            
+            if (topFrame is JavaStackFrame) {
+                val stackFrameProxy = topFrame.stackFrameProxy
+                val threadProxy = stackFrameProxy.threadProxy()
+                
+                // Get all frames from the thread
+                val allFrames = threadProxy.frames()
+                
+                if (frameIndex < allFrames.size) {
+                    LOG.info("Accessing frame $frameIndex out of ${allFrames.size} available frames")
+                    allFrames[frameIndex]
+                } else {
+                    LOG.warn("Frame index $frameIndex is out of bounds. Available frames: ${allFrames.size}")
+                    null
+                }
+            } else {
+                LOG.warn("Top frame is not a JavaStackFrame, cannot access frames by index")
+                null
+            }
+        } catch (e: Exception) {
+            LOG.error("Error accessing frame by index $frameIndex: ${e.message}", e)
+            null
+        }
+    }
+    
+    /**
+     * Get the total number of available frames
+     */
+    private fun getAvailableFrameCount(session: XDebugSession): Int {
+        return try {
+            val executionStack = session.suspendContext?.activeExecutionStack
+            val topFrame = executionStack?.topFrame
+            
+            if (topFrame is JavaStackFrame) {
+                val stackFrameProxy = topFrame.stackFrameProxy
+                val threadProxy = stackFrameProxy.threadProxy()
+                val allFrames = threadProxy.frames()
+                allFrames.size
+            } else {
+                1 // Only top frame available
+            }
+        } catch (e: Exception) {
+            LOG.error("Error getting frame count: ${e.message}", e)
+            0
         }
     }
 }

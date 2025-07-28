@@ -36,9 +36,12 @@ import com.intellij.xdebugger.XSourcePosition
 import com.intellij.util.concurrency.annotations.RequiresReadLock
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.CountDownLatch
 import javax.swing.Icon
 import com.sun.jdi.*
 import com.intellij.debugger.engine.StackFrameContext
+import com.intellij.xdebugger.frame.XExecutionStack
+import com.intellij.openapi.diagnostic.Logger
 
 /**
  * Enhanced debug session analysis tools for runtime inspection with rich variable and stack trace support
@@ -48,6 +51,10 @@ import com.intellij.debugger.engine.StackFrameContext
 class NoArgs
 
 class GetCurrentStackTraceTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
+    companion object {
+        private val LOG = Logger.getInstance(GetCurrentStackTraceTool::class.java)
+    }
+    
     override val name = "get_current_stack_trace"
     override val description = """
         Retrieves the current stack trace when execution is suspended at a breakpoint.
@@ -89,44 +96,82 @@ class GetCurrentStackTraceTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
     
     private fun getStackFrames(session: XDebugSession): List<StackFrameNode> {
         val executionStack = session.suspendContext?.activeExecutionStack
-        if (executionStack == null) return emptyList()
-        
-        val frames = mutableListOf<StackFrameNode>()
-        
-        try {
-            // Get the top frame first
-            val topFrame = executionStack.topFrame
-            if (topFrame != null) {
-                val topFrameNode = createStackFrameNode(topFrame, 0)
-                frames.add(topFrameNode)
-                
-                // Try to get additional frames using IntelliJ's debugging APIs
-                try {
-                    if (topFrame is JavaStackFrame) {
-                        val stackFrameProxy = topFrame.stackFrameProxy
-                        val threadProxy = stackFrameProxy.threadProxy()
-                        
-                        // Get all frames from the thread
-                        val allFrames = threadProxy.frames()
-                        for (i in 1 until minOf(allFrames.size, 20)) { // Limit to 20 frames max
-                            try {
-                                val frameProxy = allFrames[i]
-                                val frameNode = createStackFrameNodeFromProxy(frameProxy as com.sun.jdi.StackFrame, i)
-                                frames.add(frameNode)
-                            } catch (e: Exception) {
-                                // Skip this frame and continue
-                                continue
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    // Additional frames not available, just use top frame
-                }
-            }
-        } catch (e: Exception) {
-            // Even top frame access failed, return empty list
+        if (executionStack == null) {
+            LOG.warn("No execution stack available in debug session")
+            return emptyList()
         }
         
+        val frames = mutableListOf<StackFrameNode>()
+        val latch = CountDownLatch(1)
+        var asyncError: String? = null
+        var asyncCompleted = false
+        
+        LOG.info("Starting stack frame computation...")
+        
+        try {
+            // Use the same API that the IDE debugger UI uses to get all stack frames
+            executionStack.computeStackFrames(0, object : XExecutionStack.XStackFrameContainer {
+                override fun addStackFrames(stackFrames: MutableList<out XStackFrame>, last: Boolean) {
+                    try {
+                        LOG.info("Received ${stackFrames.size} stack frames, last=$last")
+                        // Convert XStackFrame list to StackFrameNode list
+                        stackFrames.forEachIndexed { index: Int, xStackFrame: XStackFrame ->
+                            val frameNode = createStackFrameNode(xStackFrame, index)
+                            frames.add(frameNode)
+                            LOG.debug("Added frame $index: ${frameNode.className}.${frameNode.methodName}")
+                        }
+                        asyncCompleted = true
+                    } catch (e: Exception) {
+                        LOG.error("Error processing stack frames: ${e.message}", e)
+                        asyncError = e.message
+                    } finally {
+                        if (last) {
+                            latch.countDown()
+                        }
+                    }
+                }
+                
+                override fun errorOccurred(errorMessage: String) {
+                    LOG.error("Stack frame computation error: $errorMessage")
+                    asyncError = errorMessage
+                    latch.countDown()
+                }
+            })
+            
+            // Wait for the async computation to complete, with timeout
+            val completed = latch.await(5, TimeUnit.SECONDS)
+            LOG.info("Async computation completed: $completed, frames collected: ${frames.size}")
+            
+            if (!completed) {
+                LOG.warn("Stack frame computation timed out after 5 seconds")
+                // Timeout - fallback to just the top frame
+                val topFrame = executionStack.topFrame
+                if (topFrame != null && frames.isEmpty()) {
+                    LOG.info("Using fallback to top frame only")
+                    frames.add(createStackFrameNode(topFrame, 0))
+                }
+            } else if (!asyncCompleted) {
+                LOG.warn("Async computation completed but no frames were processed successfully")
+                if (asyncError != null) {
+                    LOG.error("Async error details: $asyncError")
+                }
+            }
+            
+        } catch (e: Exception) {
+            LOG.error("Exception during stack frame computation: ${e.message}", e)
+            // Fallback to top frame only if computeStackFrames fails
+            try {
+                val topFrame = executionStack.topFrame
+                if (topFrame != null && frames.isEmpty()) {
+                    LOG.info("Using exception fallback to top frame only")
+                    frames.add(createStackFrameNode(topFrame, 0))
+                }
+            } catch (fallbackException: Exception) {
+                LOG.error("Even fallback to top frame failed: ${fallbackException.message}", fallbackException)
+            }
+        }
+        
+        LOG.info("Returning ${frames.size} stack frames")
         return frames
     }
     
@@ -141,20 +186,7 @@ class GetCurrentStackTraceTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
         )
     }
     
-    private fun createStackFrameNodeFromProxy(frameProxy: com.sun.jdi.StackFrame, index: Int): StackFrameNode {
-        val location = frameProxy.location()
-        val method = location.method()
-        val declaringType = method.declaringType()
-        
-        return StackFrameNode(
-            methodName = method.name(),
-            className = declaringType.name().substringAfterLast('.'),
-            fileName = try { location.sourceName() } catch (e: Exception) { null },
-            lineNumber = try { location.lineNumber() } catch (e: Exception) { -1 },
-            isInUserCode = isUserCodeFromType(declaringType.name()),
-            frameIndex = index
-        )
-    }
+    // Removed createStackFrameNodeFromProxy - no longer needed since we use XStackFrame directly
     
     private fun extractMethodName(frame: XStackFrame): String {
         return try {
@@ -317,6 +349,13 @@ class GetDebugSessionInfoTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
             "UNKNOWN"
         }
     }
+    
+    private fun isUserCodeFromType(typeName: String): Boolean {
+        return !typeName.startsWith("java.") && 
+               !typeName.startsWith("javax.") && 
+               !typeName.startsWith("sun.") &&
+               !typeName.startsWith("com.sun.")
+    }
 }
 
 @Serializable
@@ -336,6 +375,10 @@ data class DebugSnapshot(
 )
 
 class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArgs.serializer()) {
+    companion object {
+        private val LOG = Logger.getInstance(GetDebugSnapshotTool::class.java)
+    }
+    
     override val name = "get_debug_snapshot"
     override val description = """
         Gets a complete snapshot of the current debug state including stack trace and variables.
@@ -453,39 +496,50 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
         if (executionStack == null) return emptyList()
         
         val frames = mutableListOf<StackFrameNode>()
+        val latch = CountDownLatch(1)
         
         try {
-            // Get the top frame first
-            val topFrame = executionStack.topFrame
-            if (topFrame != null) {
-                val topFrameNode = createStackFrameNode(topFrame, 0)
-                frames.add(topFrameNode)
-                
-                // Try to get additional frames using enhanced IntelliJ debugging APIs
-                try {
-                    if (topFrame is JavaStackFrame) {
-                        val stackFrameProxy = topFrame.stackFrameProxy
-                        val threadProxy = stackFrameProxy.threadProxy()
-                        
-                        // Get all frames from the thread
-                        val allFrames = threadProxy.frames()
-                        for (i in 1 until minOf(allFrames.size, 20)) { // Limit to 20 frames max
-                            try {
-                                val frameProxy = allFrames[i]
-                                val frameNode = createStackFrameNodeFromProxy(frameProxy as com.sun.jdi.StackFrame, i)
-                                frames.add(frameNode)
-                            } catch (e: Exception) {
-                                // Skip this frame and continue
-                                continue
-                            }
+            // Use the same API that the IDE debugger UI uses to get all stack frames
+            executionStack.computeStackFrames(0, object : XExecutionStack.XStackFrameContainer {
+                override fun addStackFrames(stackFrames: MutableList<out XStackFrame>, last: Boolean) {
+                    try {
+                        // Convert XStackFrame list to StackFrameNode list
+                        stackFrames.forEachIndexed { index: Int, xStackFrame: XStackFrame ->
+                            val frameNode = createStackFrameNode(xStackFrame, index)
+                            frames.add(frameNode)
                         }
+                    } catch (e: Exception) {
+                        // Error processing frames, but we'll return what we have
+                    } finally {
+                        latch.countDown()
                     }
-                } catch (e: Exception) {
-                    // Additional frames not available, just use top frame
+                }
+                
+                override fun errorOccurred(errorMessage: String) {
+                    latch.countDown()
+                }
+            })
+            
+            // Wait for the async computation to complete, with timeout
+            val completed = latch.await(5, TimeUnit.SECONDS)
+            if (!completed) {
+                // Timeout - fallback to just the top frame
+                val topFrame = executionStack.topFrame
+                if (topFrame != null && frames.isEmpty()) {
+                    frames.add(createStackFrameNode(topFrame, 0))
                 }
             }
+            
         } catch (e: Exception) {
-            // Even top frame access failed, return empty list
+            // Fallback to top frame only if computeStackFrames fails
+            try {
+                val topFrame = executionStack.topFrame
+                if (topFrame != null && frames.isEmpty()) {
+                    frames.add(createStackFrameNode(topFrame, 0))
+                }
+            } catch (fallbackException: Exception) {
+                // Even fallback failed, return empty
+            }
         }
         
         return frames
@@ -744,20 +798,7 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
         )
     }
     
-    private fun createStackFrameNodeFromProxy(frameProxy: com.sun.jdi.StackFrame, index: Int): StackFrameNode {
-        val location = frameProxy.location()
-        val method = location.method()
-        val declaringType = method.declaringType()
-        
-        return StackFrameNode(
-            methodName = method.name(),
-            className = declaringType.name().substringAfterLast('.'),
-            fileName = try { location.sourceName() } catch (e: Exception) { null },
-            lineNumber = try { location.lineNumber() } catch (e: Exception) { -1 },
-            isInUserCode = isUserCodeFromType(declaringType.name()),
-            frameIndex = index
-        )
-    }
+    // Removed createStackFrameNodeFromProxy - no longer needed since we use XStackFrame directly
     
     private fun extractMethodName(frame: XStackFrame): String {
         return try {
