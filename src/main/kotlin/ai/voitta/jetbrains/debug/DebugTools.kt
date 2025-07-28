@@ -11,9 +11,37 @@ import org.jetbrains.ide.mcp.Response
 import org.jetbrains.mcpserverplugin.AbstractMcpTool
 import ai.voitta.jetbrains.utils.JsonUtils
 import java.time.Instant
+import com.intellij.xdebugger.frame.XStackFrame
+import com.intellij.xdebugger.frame.XValueContainer
+import com.intellij.xdebugger.frame.XValue
+import com.intellij.xdebugger.frame.XValueNode
+import com.intellij.xdebugger.frame.XValuePlace
+import com.intellij.xdebugger.frame.XCompositeNode
+import com.intellij.debugger.impl.DebuggerUtilsEx
+import com.intellij.debugger.engine.JavaStackFrame
+import com.intellij.debugger.engine.JavaValue
+import com.intellij.debugger.jdi.LocalVariableProxyImpl
+import com.intellij.debugger.jdi.StackFrameProxyImpl
+import com.intellij.debugger.jdi.ThreadReferenceProxyImpl
+import com.intellij.debugger.engine.evaluation.EvaluationContextImpl
+import com.intellij.debugger.ui.impl.watch.LocalVariableDescriptorImpl
+import com.intellij.debugger.ui.impl.watch.FieldDescriptorImpl
+import com.intellij.debugger.ui.impl.watch.ThisDescriptorImpl
+import com.intellij.debugger.ui.impl.watch.ArgumentValueDescriptorImpl
+import com.intellij.debugger.engine.DebugProcessImpl
+import com.intellij.debugger.DebuggerContext
+import com.intellij.debugger.impl.DebuggerContextImpl
+import com.intellij.xdebugger.evaluation.XDebuggerEvaluator
+import com.intellij.xdebugger.XSourcePosition
+import com.intellij.util.concurrency.annotations.RequiresReadLock
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
+import javax.swing.Icon
+import com.sun.jdi.*
+import com.intellij.debugger.engine.StackFrameContext
 
 /**
- * Debug session analysis tools for runtime inspection
+ * Enhanced debug session analysis tools for runtime inspection with rich variable and stack trace support
  */
 
 @Serializable
@@ -69,26 +97,26 @@ class GetCurrentStackTraceTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
             // Get the top frame first
             val topFrame = executionStack.topFrame
             if (topFrame != null) {
-                val topFrameNode = StackFrameNode(
-                    methodName = extractMethodName(topFrame.toString()),
-                    className = extractClassName(topFrame.toString()),
-                    fileName = topFrame.sourcePosition?.file?.name,
-                    lineNumber = (topFrame.sourcePosition?.line ?: -1) + 1,
-                    isInUserCode = isUserCode(topFrame.toString()),
-                    frameIndex = 0
-                )
+                val topFrameNode = createStackFrameNode(topFrame, 0)
                 frames.add(topFrameNode)
                 
-                // Try to get additional frames
+                // Try to get additional frames using IntelliJ's debugging APIs
                 try {
-                    // Use a simpler approach for additional frames
-                    for (i in 1..10) { // Try up to 10 frames
-                        try {
-                            // This is a simplified attempt - IntelliJ APIs vary by version
-                            // In practice, we'd need to use reflection or version-specific APIs
-                            break // For now, just use the top frame
-                        } catch (e: Exception) {
-                            break
+                    if (topFrame is JavaStackFrame) {
+                        val stackFrameProxy = topFrame.stackFrameProxy
+                        val threadProxy = stackFrameProxy.threadProxy()
+                        
+                        // Get all frames from the thread
+                        val allFrames = threadProxy.frames()
+                        for (i in 1 until minOf(allFrames.size, 20)) { // Limit to 20 frames max
+                            try {
+                                val frameProxy = allFrames[i]
+                                val frameNode = createStackFrameNodeFromProxy(frameProxy as com.sun.jdi.StackFrame, i)
+                                frames.add(frameNode)
+                            } catch (e: Exception) {
+                                // Skip this frame and continue
+                                continue
+                            }
                         }
                     }
                 } catch (e: Exception) {
@@ -102,22 +130,85 @@ class GetCurrentStackTraceTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
         return frames
     }
     
-    private fun extractMethodName(frameString: String): String {
-        val methodRegex = Regex("\\.(\\w+)\\(")
-        return methodRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
+    private fun createStackFrameNode(frame: XStackFrame, index: Int): StackFrameNode {
+        return StackFrameNode(
+            methodName = extractMethodName(frame),
+            className = extractClassName(frame),
+            fileName = frame.sourcePosition?.file?.name,
+            lineNumber = (frame.sourcePosition?.line ?: -1) + 1,
+            isInUserCode = isUserCode(frame),
+            frameIndex = index
+        )
     }
     
-    private fun extractClassName(frameString: String): String {
-        val classRegex = Regex("([\\w.]+)\\.\\w+\\(")
-        val fullClassName = classRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
-        return fullClassName.substringAfterLast('.')
+    private fun createStackFrameNodeFromProxy(frameProxy: com.sun.jdi.StackFrame, index: Int): StackFrameNode {
+        val location = frameProxy.location()
+        val method = location.method()
+        val declaringType = method.declaringType()
+        
+        return StackFrameNode(
+            methodName = method.name(),
+            className = declaringType.name().substringAfterLast('.'),
+            fileName = try { location.sourceName() } catch (e: Exception) { null },
+            lineNumber = try { location.lineNumber() } catch (e: Exception) { -1 },
+            isInUserCode = isUserCodeFromType(declaringType.name()),
+            frameIndex = index
+        )
     }
     
-    private fun isUserCode(frameString: String): Boolean {
-        return !frameString.contains("java.") && 
-               !frameString.contains("javax.") && 
-               !frameString.contains("sun.") &&
-               !frameString.contains("com.sun.")
+    private fun extractMethodName(frame: XStackFrame): String {
+        return try {
+            if (frame is JavaStackFrame) {
+                val method = frame.stackFrameProxy.location().method()
+                method.name()
+            } else {
+                val frameString = frame.toString()
+                val methodRegex = Regex("\\.(\\w+)\\(")
+                methodRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
+            }
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
+    
+    private fun extractClassName(frame: XStackFrame): String {
+        return try {
+            if (frame is JavaStackFrame) {
+                val declaringType = frame.stackFrameProxy.location().method().declaringType()
+                declaringType.name().substringAfterLast('.')
+            } else {
+                val frameString = frame.toString()
+                val classRegex = Regex("([\\w.]+)\\.\\w+\\(")
+                val fullClassName = classRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
+                fullClassName.substringAfterLast('.')
+            }
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
+    
+    private fun isUserCode(frame: XStackFrame): Boolean {
+        return try {
+            if (frame is JavaStackFrame) {
+                val declaringType = frame.stackFrameProxy.location().method().declaringType()
+                isUserCodeFromType(declaringType.name())
+            } else {
+                val frameString = frame.toString()
+                !frameString.contains("java.") && 
+                !frameString.contains("javax.") && 
+                !frameString.contains("sun.") &&
+                !frameString.contains("com.sun.")
+            }
+        } catch (e: Exception) {
+            true
+        }
+    }
+    
+    private fun isUserCodeFromType(typeName: String): Boolean {
+        return !typeName.startsWith("java.") && 
+               !typeName.startsWith("javax.") && 
+               !typeName.startsWith("sun.") &&
+               !typeName.startsWith("com.sun.")
     }
 }
 
@@ -200,7 +291,11 @@ class GetDebugSessionInfoTool : AbstractMcpTool<NoArgs>(NoArgs.serializer()) {
     private fun getTotalThreadCount(session: XDebugSession): Int {
         return try {
             val suspendContext = session.suspendContext
-            if (suspendContext != null) 1 else 0
+            if (suspendContext != null) {
+                suspendContext.executionStacks.size
+            } else {
+                0
+            }
         } catch (e: Exception) {
             0
         }
@@ -363,19 +458,31 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
             // Get the top frame first
             val topFrame = executionStack.topFrame
             if (topFrame != null) {
-                val topFrameNode = StackFrameNode(
-                    methodName = extractMethodName(topFrame.toString()),
-                    className = extractClassName(topFrame.toString()),
-                    fileName = topFrame.sourcePosition?.file?.name,
-                    lineNumber = (topFrame.sourcePosition?.line ?: -1) + 1,
-                    isInUserCode = isUserCode(topFrame.toString()),
-                    frameIndex = 0
-                )
+                val topFrameNode = createStackFrameNode(topFrame, 0)
                 frames.add(topFrameNode)
                 
-                // Note: Full stack trace extraction requires more complex IntelliJ API handling
-                // For now, we provide the top frame which covers most debugging needs
-                // Future enhancement: implement proper multi-frame stack traversal
+                // Try to get additional frames using enhanced IntelliJ debugging APIs
+                try {
+                    if (topFrame is JavaStackFrame) {
+                        val stackFrameProxy = topFrame.stackFrameProxy
+                        val threadProxy = stackFrameProxy.threadProxy()
+                        
+                        // Get all frames from the thread
+                        val allFrames = threadProxy.frames()
+                        for (i in 1 until minOf(allFrames.size, 20)) { // Limit to 20 frames max
+                            try {
+                                val frameProxy = allFrames[i]
+                                val frameNode = createStackFrameNodeFromProxy(frameProxy as com.sun.jdi.StackFrame, i)
+                                frames.add(frameNode)
+                            } catch (e: Exception) {
+                                // Skip this frame and continue
+                                continue
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    // Additional frames not available, just use top frame
+                }
             }
         } catch (e: Exception) {
             // Even top frame access failed, return empty list
@@ -389,7 +496,6 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
             val executionStack = session.suspendContext?.activeExecutionStack ?: return emptyList()
             
             // For now, we'll only work with the top frame (frameIndex 0)
-            // since accessing variables requires complex API handling
             if (frameIndex != 0) {
                 return listOf(VariableNode(
                     name = "Variables",
@@ -403,25 +509,20 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
             
             val frame = executionStack.topFrame ?: return emptyList()
             
-            // Note: Variable extraction from debug frames requires complex IntelliJ API handling
-            // The APIs vary significantly between IntelliJ versions and debugger types
-            // For now, we provide helpful guidance to use the evaluate expression functionality
+            // Enhanced variable extraction for Java debugging
+            if (frame is JavaStackFrame) {
+                return extractJavaVariables(frame, expandObjects)
+            }
             
-            return listOf(VariableNode(
-                name = "Variables",
-                value = "Use 'Evaluate Expression' during debugging to inspect specific variables (Ctrl+Alt+F8)",
-                type = "Info",
-                scope = "LOCAL",
-                isExpandable = false,
-                isPrimitive = false
-            ))
+            // Fallback for other frame types
+            return extractGenericVariables(frame, expandObjects)
             
         } catch (e: Exception) {
             // Return a helpful message instead of empty list
             return listOf(VariableNode(
                 name = "Variables",
-                value = "Use evaluate expression functionality to inspect specific variables during debugging",
-                type = "Info",
+                value = "Error extracting variables: ${e.message}. Use evaluate expression functionality for detailed inspection.",
+                type = "Error",
                 scope = "LOCAL",
                 isExpandable = false,
                 isPrimitive = false
@@ -429,22 +530,288 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
         }
     }
     
-    private fun extractMethodName(frameString: String): String {
-        val methodRegex = Regex("\\.(\\w+)\\(")
-        return methodRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
+    private fun extractJavaVariables(frame: JavaStackFrame, expandObjects: Boolean): List<VariableNode> {
+        val variables = mutableListOf<VariableNode>()
+        
+        try {
+            val stackFrameProxy = frame.stackFrameProxy
+            
+            // Get local variables
+            try {
+                val localVariables = stackFrameProxy.visibleVariables()
+                for (localVar in localVariables) {
+                    try {
+                        val value = stackFrameProxy.getValue(localVar)
+                        val variableNode = createVariableNode(
+                            localVar.name(),
+                            value,
+                            localVar.typeName(),
+                            "LOCAL",
+                            expandObjects
+                        )
+                        variables.add(variableNode)
+                    } catch (e: Exception) {
+                        // Skip this variable if we can't access it
+                        variables.add(VariableNode(
+                            name = localVar.name(),
+                            value = "<unavailable: ${e.message}>",
+                            type = localVar.typeName(),
+                            scope = "LOCAL",
+                            isExpandable = false,
+                            isPrimitive = false
+                        ))
+                    }
+                }
+            } catch (e: Exception) {
+                // Local variables not accessible
+            }
+            
+            // Get method parameters
+            try {
+                val method = stackFrameProxy.location().method()
+                val argumentTypes = method.argumentTypes()
+                val argumentValues = stackFrameProxy.getArgumentValues()
+                
+                for (i in argumentValues.indices) {
+                    try {
+                        val value = argumentValues[i]
+                        val typeName = if (i < argumentTypes.size) {
+                            argumentTypes[i].name()
+                        } else {
+                            "Unknown"
+                        }
+                        
+                        val variableNode = createVariableNode(
+                            "arg$i",
+                            value,
+                            typeName,
+                            "PARAMETER",
+                            expandObjects
+                        )
+                        variables.add(variableNode)
+                    } catch (e: Exception) {
+                        // Skip this parameter
+                        continue
+                    }
+                }
+            } catch (e: Exception) {
+                // Parameters not accessible
+            }
+            
+            // Get 'this' object if available (non-static method)
+            try {
+                val thisObject = stackFrameProxy.thisObject()
+                if (thisObject != null) {
+                    val variableNode = createVariableNode(
+                        "this",
+                        thisObject,
+                        thisObject.referenceType().name(),
+                        "FIELD",
+                        expandObjects
+                    )
+                    variables.add(variableNode)
+                }
+            } catch (e: Exception) {
+                // 'this' not available (static method or error)
+            }
+            
+        } catch (e: Exception) {
+            // Fallback to a helpful error message
+            variables.add(VariableNode(
+                name = "Variables",
+                value = "Enhanced variable extraction failed: ${e.message}",
+                type = "Error",
+                scope = "LOCAL",
+                isExpandable = false,
+                isPrimitive = false
+            ))
+        }
+        
+        // If no variables were extracted, provide helpful guidance
+        if (variables.isEmpty()) {
+            variables.add(VariableNode(
+                name = "Variables",
+                value = "No variables visible in current scope. Use 'Evaluate Expression' (Ctrl+Alt+F8) for custom inspection.",
+                type = "Info",
+                scope = "LOCAL",
+                isExpandable = false,
+                isPrimitive = false
+            ))
+        }
+        
+        return variables
     }
     
-    private fun extractClassName(frameString: String): String {
-        val classRegex = Regex("([\\w.]+)\\.\\w+\\(")
-        val fullClassName = classRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
-        return fullClassName.substringAfterLast('.')
+    private fun extractGenericVariables(frame: XStackFrame, expandObjects: Boolean): List<VariableNode> {
+        // Generic variable extraction using XValueContainer
+        val variables = mutableListOf<VariableNode>()
+        
+        try {
+            // This is a simplified implementation
+            // XStackFrame doesn't directly expose variables, so we provide guidance
+            variables.add(VariableNode(
+                name = "Variables",
+                value = "Generic frame type detected. Use 'Evaluate Expression' during debugging to inspect specific variables (Ctrl+Alt+F8)",
+                type = "Info",
+                scope = "LOCAL",
+                isExpandable = false,
+                isPrimitive = false
+            ))
+        } catch (e: Exception) {
+            variables.add(VariableNode(
+                name = "Variables",
+                value = "Variable extraction not available for this frame type: ${e.message}",
+                type = "Error",
+                scope = "LOCAL",
+                isExpandable = false,
+                isPrimitive = false
+            ))
+        }
+        
+        return variables
     }
     
-    private fun isUserCode(frameString: String): Boolean {
-        return !frameString.contains("java.") && 
-               !frameString.contains("javax.") && 
-               !frameString.contains("sun.") &&
-               !frameString.contains("com.sun.")
+    private fun createVariableNode(
+        name: String,
+        value: Value?,
+        typeName: String,
+        scope: String,
+        expandObjects: Boolean
+    ): VariableNode {
+        val valueString = try {
+            when (value) {
+                null -> "null"
+                is StringReference -> "\"${value.value()}\""
+                is PrimitiveValue -> value.toString()
+                is ObjectReference -> {
+                    if (expandObjects) {
+                        expandObjectValue(value)
+                    } else {
+                        "${value.referenceType().name()}@${value.uniqueID()}"
+                    }
+                }
+                else -> value.toString()
+            }
+        } catch (e: Exception) {
+            "<error: ${e.message}>"
+        }
+        
+        val isPrimitive = when (value) {
+            is PrimitiveValue -> true
+            is StringReference -> true
+            null -> true
+            else -> false
+        }
+        
+        val isExpandable = value is ObjectReference && !isPrimitive
+        
+        return VariableNode(
+            name = name,
+            value = valueString,
+            type = typeName.substringAfterLast('.'),
+            scope = scope,
+            isExpandable = isExpandable,
+            isPrimitive = isPrimitive
+        )
+    }
+    
+    private fun expandObjectValue(objectRef: ObjectReference): String {
+        return try {
+            val type = objectRef.referenceType()
+            val fields = type.allFields().take(5) // Limit to first 5 fields
+            val fieldValues = fields.map { field ->
+                try {
+                    val fieldValue = objectRef.getValue(field)
+                    "${field.name()}=${fieldValue?.toString() ?: "null"}"
+                } catch (e: Exception) {
+                    "${field.name()}=<error>"
+                }
+            }
+            "${type.name()}{${fieldValues.joinToString(", ")}}"
+        } catch (e: Exception) {
+            objectRef.toString()
+        }
+    }
+    
+    private fun createStackFrameNode(frame: XStackFrame, index: Int): StackFrameNode {
+        return StackFrameNode(
+            methodName = extractMethodName(frame),
+            className = extractClassName(frame),
+            fileName = frame.sourcePosition?.file?.name,
+            lineNumber = (frame.sourcePosition?.line ?: -1) + 1,
+            isInUserCode = isUserCode(frame),
+            frameIndex = index
+        )
+    }
+    
+    private fun createStackFrameNodeFromProxy(frameProxy: com.sun.jdi.StackFrame, index: Int): StackFrameNode {
+        val location = frameProxy.location()
+        val method = location.method()
+        val declaringType = method.declaringType()
+        
+        return StackFrameNode(
+            methodName = method.name(),
+            className = declaringType.name().substringAfterLast('.'),
+            fileName = try { location.sourceName() } catch (e: Exception) { null },
+            lineNumber = try { location.lineNumber() } catch (e: Exception) { -1 },
+            isInUserCode = isUserCodeFromType(declaringType.name()),
+            frameIndex = index
+        )
+    }
+    
+    private fun extractMethodName(frame: XStackFrame): String {
+        return try {
+            if (frame is JavaStackFrame) {
+                val method = frame.stackFrameProxy.location().method()
+                method.name()
+            } else {
+                val frameString = frame.toString()
+                val methodRegex = Regex("\\.(\\w+)\\(")
+                methodRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
+            }
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
+    
+    private fun extractClassName(frame: XStackFrame): String {
+        return try {
+            if (frame is JavaStackFrame) {
+                val declaringType = frame.stackFrameProxy.location().method().declaringType()
+                declaringType.name().substringAfterLast('.')
+            } else {
+                val frameString = frame.toString()
+                val classRegex = Regex("([\\w.]+)\\.\\w+\\(")
+                val fullClassName = classRegex.find(frameString)?.groupValues?.get(1) ?: "Unknown"
+                fullClassName.substringAfterLast('.')
+            }
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
+    
+    private fun isUserCode(frame: XStackFrame): Boolean {
+        return try {
+            if (frame is JavaStackFrame) {
+                val declaringType = frame.stackFrameProxy.location().method().declaringType()
+                isUserCodeFromType(declaringType.name())
+            } else {
+                val frameString = frame.toString()
+                !frameString.contains("java.") && 
+                !frameString.contains("javax.") && 
+                !frameString.contains("sun.") &&
+                !frameString.contains("com.sun.")
+            }
+        } catch (e: Exception) {
+            true
+        }
+    }
+    
+    private fun isUserCodeFromType(typeName: String): Boolean {
+        return !typeName.startsWith("java.") && 
+               !typeName.startsWith("javax.") && 
+               !typeName.startsWith("sun.") &&
+               !typeName.startsWith("com.sun.")
     }
     
     private fun getCurrentThreadName(session: XDebugSession): String? {
@@ -472,7 +839,12 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
     
     private fun getTotalThreadCount(session: XDebugSession): Int {
         return try {
-            1
+            val suspendContext = session.suspendContext
+            if (suspendContext != null) {
+                suspendContext.executionStacks.size
+            } else {
+                0
+            }
         } catch (e: Exception) {
             0
         }
@@ -493,17 +865,5 @@ class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArg
         } catch (e: Exception) {
             "UNKNOWN"
         }
-    }
-    
-    private fun determineVariableScope(variableName: String): String {
-        return when {
-            variableName == "this" -> "FIELD"
-            variableName.startsWith("arg") -> "PARAMETER"
-            else -> "LOCAL"
-        }
-    }
-    
-    private fun isPrimitiveType(typeName: String): Boolean {
-        return typeName in listOf("int", "long", "float", "double", "boolean", "char", "byte", "short", "String")
     }
 }

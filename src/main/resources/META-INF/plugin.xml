@@ -14,7 +14,7 @@
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
         Enhanced MCP tools for AST analysis and debug inspection.<br>
-        <em>Provides advanced debugging tools, AST analysis, and code pattern detection for Java projects.</em>
+        <em>Provides advanced debugging tools with rich variable inspection, full stack trace support, AST analysis, and code pattern detection for Java projects.</em>
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
@@ -25,10 +25,14 @@
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
         
-        <!-- Debug Tools -->
+        <!-- Enhanced Debug Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.debug.GetCurrentStackTraceTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSessionInfoTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSnapshotTool"/>
+        
+        <!-- Variable Evaluation Tools -->
+        <mcpTool implementation="ai.voitta.jetbrains.debug.EvaluateExpressionTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.debug.GetFrameVariablesTool"/>
         
         <!-- Java AST Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetJavaFileAstTool"/>
