@@ -98,7 +98,7 @@ public class Utils {
             return "No forecast data available";
 
         } catch (IOException | InterruptedException e) {
-            return "Error fetching weather data: " + e.getMessage();
+            throw new RuntimeException("Error fetching weather data: " + e.getMessage(), e);
         }
     }
 }

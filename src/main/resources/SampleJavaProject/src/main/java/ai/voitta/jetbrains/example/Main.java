@@ -12,6 +12,7 @@ public class Main {
         String weather = Utils.getWeather(u);
         System.out.println("The weather is nice, isn't it?");
         System.out.println(weather);
+
     }
 
 }
