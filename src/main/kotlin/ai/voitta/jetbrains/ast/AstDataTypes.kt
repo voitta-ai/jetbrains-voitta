@@ -226,6 +226,7 @@ data class MethodLineRange(
     val signatureLineNumber: Int,
     val firstExecutableLineNumber: Int?,
     val lastLineNumber: Int,
+    val lastExecutableLineNumber: Int?,  // New field for last executable line
     val bodyStartLine: Int?,
     val bodyEndLine: Int?
 )

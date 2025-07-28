@@ -742,6 +742,7 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                         "signatureLineNumber": ${details.lineRange.signatureLineNumber},
                         "firstExecutableLineNumber": ${details.lineRange.firstExecutableLineNumber ?: -1},
                         "lastLineNumber": ${details.lineRange.lastLineNumber},
+                        "lastExecutableLineNumber": ${details.lineRange.lastExecutableLineNumber ?: -1},
                         "bodyStartLine": ${details.lineRange.bodyStartLine ?: -1},
                         "bodyEndLine": ${details.lineRange.bodyEndLine ?: -1}
                     },

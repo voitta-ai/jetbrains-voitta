@@ -311,12 +311,27 @@ object AstUtils {
     }
     
     /**
+     * Gets the last executable line number in a method
+     */
+    fun getLastExecutableLineNumber(method: PsiMethod): Int? {
+        val body = method.body ?: return null
+        
+        // Find the last statement that's actually executable
+        val lastStatement = body.statements.lastOrNull { statement ->
+            !isNonExecutableStatement(statement)
+        } ?: return null
+        
+        return getLineNumber(lastStatement)
+    }
+    
+    /**
      * Gets complete line range information for a method
      */
     fun getMethodLineRange(method: PsiMethod): MethodLineRange {
         val signatureLineNumber = getLineNumber(method)
         val firstExecutableLineNumber = getFirstExecutableLineNumber(method)
         val lastLineNumber = getLastLineNumber(method)
+        val lastExecutableLineNumber = getLastExecutableLineNumber(method)
         
         val body = method.body
         val bodyStartLine = body?.let { getLineNumber(it) }
@@ -329,6 +344,7 @@ object AstUtils {
             signatureLineNumber = signatureLineNumber,
             firstExecutableLineNumber = firstExecutableLineNumber,
             lastLineNumber = lastLineNumber,
+            lastExecutableLineNumber = lastExecutableLineNumber,
             bodyStartLine = bodyStartLine,
             bodyEndLine = bodyEndLine
         )
@@ -394,6 +410,16 @@ object AstUtils {
                 lineNumber = line,
                 reason = "FIRST_EXECUTABLE",
                 description = "First executable statement in method",
+                priority = "HIGH"
+            ))
+        }
+        
+        // Last executable line (high priority)
+        getLastExecutableLineNumber(method)?.let { line ->
+            suggestions.add(BreakpointSuggestion(
+                lineNumber = line,
+                reason = "LAST_EXECUTABLE",
+                description = "Last executable statement in method",
                 priority = "HIGH"
             ))
         }
