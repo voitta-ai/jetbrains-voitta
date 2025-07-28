@@ -24,8 +24,6 @@
     <depends>com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
-        <!-- Original demo tool -->
-        <mcpTool implementation="ai.voitta.jetbrains.MyCustomTool"/>
         
         <!-- Debug Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.debug.GetCurrentStackTraceTool"/>
