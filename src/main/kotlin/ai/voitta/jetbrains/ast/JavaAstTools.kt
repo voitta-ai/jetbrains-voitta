@@ -1,4 +1,4 @@
-package org.jetbrains.mcpextensiondemo.ast.java
+package ai.voitta.jetbrains.ast
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.LocalFileSystem
@@ -7,8 +7,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import kotlinx.serialization.Serializable
 import org.jetbrains.ide.mcp.Response
 import org.jetbrains.mcpserverplugin.AbstractMcpTool
-import org.jetbrains.mcpextensiondemo.utils.JsonUtils
-import org.jetbrains.mcpextensiondemo.ast.*
+import ai.voitta.jetbrains.utils.JsonUtils
 import com.intellij.psi.search.GlobalSearchScope
 import java.nio.file.Paths
 
@@ -267,8 +266,8 @@ class GetClassHierarchyTool : AbstractMcpTool<ClassHierarchyArgs>(ClassHierarchy
                 psiClass.isAnnotationType -> "ANNOTATION"
                 else -> "CLASS"
             },
-            file = psiClass.containingFile?.virtualFile?.let { 
-                AstUtils.getRelativePath(psiClass.project, it) 
+            file = psiClass.containingFile?.virtualFile?.let {
+                AstUtils.getRelativePath(psiClass.project, it)
             }
         )
         
@@ -324,8 +323,8 @@ class GetClassHierarchyTool : AbstractMcpTool<ClassHierarchyArgs>(ClassHierarchy
                 psiClass.isAnnotationType -> "ANNOTATION"
                 else -> "CLASS"
             },
-            file = psiClass.containingFile?.virtualFile?.let { 
-                AstUtils.getRelativePath(psiClass.project, it) 
+            file = psiClass.containingFile?.virtualFile?.let {
+                AstUtils.getRelativePath(psiClass.project, it)
             }
         )
     }
@@ -516,16 +515,18 @@ class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArg
         val condition = statement.condition?.text ?: return
         
         if (condition.contains("== null") || condition.contains("!= null")) {
-            patterns.add(CodePattern(
-                patternType = "NULL_CHECK",
-                description = "Null check detected",
-                file = file,
-                startLine = AstUtils.getLineNumber(statement),
-                endLine = AstUtils.getLineNumber(statement),
-                codeSnippet = AstUtils.createCodeSnippet(statement),
-                severity = "INFO",
-                suggestion = "Consider using Optional or defensive programming techniques"
-            ))
+            patterns.add(
+                CodePattern(
+                    patternType = "NULL_CHECK",
+                    description = "Null check detected",
+                    file = file,
+                    startLine = AstUtils.getLineNumber(statement),
+                    endLine = AstUtils.getLineNumber(statement),
+                    codeSnippet = AstUtils.createCodeSnippet(statement),
+                    severity = "INFO",
+                    suggestion = "Consider using Optional or defensive programming techniques"
+                )
+            )
         }
     }
     
@@ -536,16 +537,18 @@ class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArg
         }
         
         if (emptyCatchBlocks.isNotEmpty()) {
-            patterns.add(CodePattern(
-                patternType = "EMPTY_CATCH",
-                description = "Empty catch block detected",
-                file = file,
-                startLine = AstUtils.getLineNumber(statement),
-                endLine = AstUtils.getLineNumber(statement),
-                codeSnippet = AstUtils.createCodeSnippet(statement),
-                severity = "WARNING",
-                suggestion = "Consider logging the exception or handling it appropriately"
-            ))
+            patterns.add(
+                CodePattern(
+                    patternType = "EMPTY_CATCH",
+                    description = "Empty catch block detected",
+                    file = file,
+                    startLine = AstUtils.getLineNumber(statement),
+                    endLine = AstUtils.getLineNumber(statement),
+                    codeSnippet = AstUtils.createCodeSnippet(statement),
+                    severity = "WARNING",
+                    suggestion = "Consider logging the exception or handling it appropriately"
+                )
+            )
         }
     }
     
@@ -553,16 +556,18 @@ class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArg
         // Detect potential infinite loops or performance issues
         val body = statement.body
         if (body != null) {
-            patterns.add(CodePattern(
-                patternType = "FOR_LOOP",
-                description = "For loop detected",
-                file = file,
-                startLine = AstUtils.getLineNumber(statement),
-                endLine = AstUtils.getLineNumber(statement),
-                codeSnippet = AstUtils.createCodeSnippet(statement),
-                severity = "INFO",
-                suggestion = "Consider using enhanced for-loops or streams where appropriate"
-            ))
+            patterns.add(
+                CodePattern(
+                    patternType = "FOR_LOOP",
+                    description = "For loop detected",
+                    file = file,
+                    startLine = AstUtils.getLineNumber(statement),
+                    endLine = AstUtils.getLineNumber(statement),
+                    codeSnippet = AstUtils.createCodeSnippet(statement),
+                    severity = "INFO",
+                    suggestion = "Consider using enhanced for-loops or streams where appropriate"
+                )
+            )
         }
     }
     
@@ -570,16 +575,18 @@ class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArg
         val linesOfCode = AstUtils.countLinesOfCode(method)
         
         if (linesOfCode > 50) {
-            patterns.add(CodePattern(
-                patternType = "LONG_METHOD",
-                description = "Method is too long ($linesOfCode lines)",
-                file = file,
-                startLine = AstUtils.getLineNumber(method),
-                endLine = AstUtils.getLineNumber(method),
-                codeSnippet = AstUtils.createCodeSnippet(method),
-                severity = "WARNING",
-                suggestion = "Consider breaking this method into smaller, more focused methods"
-            ))
+            patterns.add(
+                CodePattern(
+                    patternType = "LONG_METHOD",
+                    description = "Method is too long ($linesOfCode lines)",
+                    file = file,
+                    startLine = AstUtils.getLineNumber(method),
+                    endLine = AstUtils.getLineNumber(method),
+                    codeSnippet = AstUtils.createCodeSnippet(method),
+                    severity = "WARNING",
+                    suggestion = "Consider breaking this method into smaller, more focused methods"
+                )
+            )
         }
     }
     
@@ -587,16 +594,18 @@ class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArg
         val parameterCount = method.parameterList.parametersCount
         
         if (parameterCount > 5) {
-            patterns.add(CodePattern(
-                patternType = "TOO_MANY_PARAMETERS",
-                description = "Method has too many parameters ($parameterCount)",
-                file = file,
-                startLine = AstUtils.getLineNumber(method),
-                endLine = AstUtils.getLineNumber(method),
-                codeSnippet = AstUtils.createCodeSnippet(method),
-                severity = "WARNING",
-                suggestion = "Consider using a parameter object or builder pattern"
-            ))
+            patterns.add(
+                CodePattern(
+                    patternType = "TOO_MANY_PARAMETERS",
+                    description = "Method has too many parameters ($parameterCount)",
+                    file = file,
+                    startLine = AstUtils.getLineNumber(method),
+                    endLine = AstUtils.getLineNumber(method),
+                    codeSnippet = AstUtils.createCodeSnippet(method),
+                    severity = "WARNING",
+                    suggestion = "Consider using a parameter object or builder pattern"
+                )
+            )
         }
     }
 }

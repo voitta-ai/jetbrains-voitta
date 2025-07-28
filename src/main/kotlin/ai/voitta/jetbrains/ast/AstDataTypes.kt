@@ -1,4 +1,4 @@
-package org.jetbrains.mcpextensiondemo.ast
+package ai.voitta.jetbrains.ast
 
 import kotlinx.serialization.Serializable
 

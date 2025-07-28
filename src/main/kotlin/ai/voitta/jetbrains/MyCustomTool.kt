@@ -1,9 +1,7 @@
-package org.jetbrains.mcpextensiondemo
+package ai.voitta.jetbrains
 
 import com.intellij.openapi.project.Project
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.json.Json
 import org.jetbrains.ide.mcp.Response
 import org.jetbrains.mcpserverplugin.AbstractMcpTool
 

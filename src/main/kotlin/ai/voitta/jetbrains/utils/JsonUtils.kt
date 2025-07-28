@@ -1,4 +1,4 @@
-package org.jetbrains.mcpextensiondemo.utils
+package ai.voitta.jetbrains.utils
 
 object JsonUtils {
     fun escapeJson(str: String): String {

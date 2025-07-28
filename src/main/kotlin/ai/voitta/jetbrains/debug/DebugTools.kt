@@ -1,13 +1,16 @@
-package org.jetbrains.mcpextensiondemo.ast.debug
+package ai.voitta.jetbrains.debug
 
+import ai.voitta.jetbrains.ast.DebugSessionInfo
+import ai.voitta.jetbrains.ast.StackFrameNode
+import ai.voitta.jetbrains.ast.VariableNode
 import com.intellij.openapi.project.Project
 import com.intellij.xdebugger.XDebugSession
 import com.intellij.xdebugger.XDebuggerManager
 import kotlinx.serialization.Serializable
 import org.jetbrains.ide.mcp.Response
 import org.jetbrains.mcpserverplugin.AbstractMcpTool
-import org.jetbrains.mcpextensiondemo.utils.JsonUtils
-import org.jetbrains.mcpextensiondemo.ast.*
+import ai.voitta.jetbrains.utils.JsonUtils
+import java.time.Instant
 
 /**
  * Debug session analysis tools for runtime inspection
@@ -216,7 +219,7 @@ data class DebugSnapshot(
     val sessionInfo: DebugSessionInfo,
     val stackTrace: List<StackFrameNode>? = null,
     val currentFrameVariables: List<VariableNode>? = null,
-    val timestamp: String = java.time.Instant.now().toString()
+    val timestamp: String = Instant.now().toString()
 )
 
 class GetDebugSnapshotTool : AbstractMcpTool<DebugSnapshotArgs>(DebugSnapshotArgs.serializer()) {

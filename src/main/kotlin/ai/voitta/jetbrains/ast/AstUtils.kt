@@ -1,4 +1,4 @@
-package org.jetbrains.mcpextensiondemo.ast
+package ai.voitta.jetbrains.ast
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -7,6 +7,7 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.psi.javadoc.PsiDocComment
+import java.nio.file.Paths
 import kotlin.math.max
 
 /**
@@ -39,8 +40,8 @@ object AstUtils {
      */
     fun getRelativePath(project: Project, file: VirtualFile): String {
         val projectDir = project.basePath ?: return file.path
-        val projectPath = java.nio.file.Paths.get(projectDir)
-        val filePath = java.nio.file.Paths.get(file.path)
+        val projectPath = Paths.get(projectDir)
+        val filePath = Paths.get(file.path)
         
         return try {
             projectPath.relativize(filePath).toString()
