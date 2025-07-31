@@ -236,18 +236,17 @@ data class BreakpointSuggestion(
     val lineNumber: Int,
     val reason: String,  // "FIRST_EXECUTABLE", "DECISION_POINT", "METHOD_EXIT", etc.
     val description: String,
-    val priority: String = "NORMAL"  // "HIGH", "NORMAL", "LOW"
+    val priority: String = "NORMAL",  // "HIGH", "NORMAL", "LOW"
+    val methodName: String? = null
 )
 
 @Serializable
 data class MethodDetails(
     val name: String,
     val className: String,
-    val signature: String,
     val file: String,
     val lineRange: MethodLineRange,
     val complexity: ComplexityMetric,
-    val breakpointSuggestions: List<BreakpointSuggestion> = emptyList(),
     val parameters: List<ParameterNode> = emptyList(),
-    val modifiers: List<String> = emptyList()
+    val breakpointSuggestions: List<BreakpointSuggestion> = emptyList()
 )
