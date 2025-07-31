@@ -86,7 +86,17 @@ object LanguageAnalyzerFactory {
     init {
         // Register default analyzers
         registerAnalyzer(JavaAstAnalyzer())
-        registerAnalyzer(ai.voitta.jetbrains.ast.php.PhpAstAnalyzer())
+        
+        // Register PHP analyzer only if PHP plugin is available
+        try {
+            // Check if PHP plugin classes are available at runtime
+            Class.forName("com.jetbrains.php.lang.psi.PhpFile")
+            // registerAnalyzer(ai.voitta.jetbrains.ast.php.PhpAstAnalyzer())
+            // TODO: PHP analyzer implementation pending - classes available but implementation incomplete
+        } catch (e: ClassNotFoundException) {
+            // PHP plugin not available - running in Community Edition or PHP plugin not installed
+            // Only Java support will be available
+        }
     }
     
     fun registerAnalyzer(analyzer: LanguageAstAnalyzer) {

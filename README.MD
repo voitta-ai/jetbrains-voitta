@@ -62,37 +62,83 @@ This project was inspired by the [original demo plugin](https://github.com/MaXal
 
 ### **Available Gradle Tasks**
 
-The plugin provides three gradle tasks for testing in different environments:
+The plugin supports **multi-platform builds** for IntelliJ Ultimate, PhpStorm, and Community Edition:
 
-| Task | Description | IDE |
-|------|-------------|-----|
-| `./gradlew runIde` | Default task - runs IntelliJ IDEA Ultimate Edition | IntelliJ Ultimate |
-| `./gradlew runIntelliJ` | Explicit IntelliJ IDEA task (same as runIde) | IntelliJ Ultimate |
-| `./gradlew runPhpStorm` | Runs with full PHP support | IntelliJ Ultimate with PHP |
+#### **Ultimate Edition Tasks (Default)**
+| Task | Description | IDE Platform |
+|------|-------------|--------------|
+| `./gradlew build` | Build plugin for Ultimate Edition | IntelliJ Ultimate 2024.3 |
+| `./gradlew buildPlugin` | Create plugin distribution for Ultimate | IntelliJ Ultimate 2024.3 |
+| `./gradlew runIde` | Run Ultimate Edition with plugin | IntelliJ Ultimate 2024.3 |
 
-All tasks use IntelliJ Ultimate Edition 2024.3 as the base platform with both Java and PHP plugins bundled, providing complete language support for both Java and PHP development.
+#### **PhpStorm Tasks**
+| Task | Description | IDE Platform |
+|------|-------------|--------------|
+| `./gradlew -Pidea.platform=phpstorm build` | Build plugin for PhpStorm | PhpStorm 2024.3 |
+| `./gradlew buildPhpStorm` | Build plugin for PhpStorm | PhpStorm 2024.3 |
+| `./gradlew runPhpStorm` | Run PhpStorm with plugin* | PhpStorm 2024.3 |
+
+#### **Community Edition Tasks**
+| Task | Description | IDE Platform |
+|------|-------------|--------------|
+| `./gradlew -Pidea.platform=community build` | Build plugin for Community Edition | IntelliJ Community 2024.3 |
+| `./gradlew buildCommunity` | Build plugin for Community Edition | IntelliJ Community 2024.3 |
+| `./gradlew runCommunity` | Run Community Edition with plugin | IntelliJ Community 2024.3 |
+
+> **Note**: PhpStorm build currently has Java PSI compatibility issues. Ultimate Edition is the recommended platform. Community Edition provides Java-only support.
 
 ### **Development Workflow**
 
 #### Testing in Different IDEs
 ```bash
-# Default task - runs IntelliJ IDEA Community Edition
+# Default task - runs IntelliJ Ultimate (default)
 ./gradlew runIde
 
-# Explicit IntelliJ IDEA task
+# Explicit IntelliJ Ultimate task
 ./gradlew runIntelliJ
 
-# Run with PHP support
+# Run PhpStorm with PHP support
 ./gradlew runPhpStorm
+
+# Run Community Edition (Java-only)
+./gradlew runCommunity
 ```
 
 #### Build Configuration
-The plugin is configured to work with both Java and PHP out of the box:
-- Base Platform: IntelliJ Ultimate Edition 2024.3
-- Bundled Plugins: Java, PHP (native Ultimate support)
+The plugin supports multi-platform builds:
+
+**Ultimate Edition (Default):**
+- Base Platform: IntelliJ Ultimate 2024.3
+- Bundled Plugins: Java (native support)
+- PHP Support: External plugin (planned)
 - Java Version: JDK 21+
 - Kotlin Version: 1.9.24
-- License: Requires Ultimate Edition or PhpStorm license
+
+**PhpStorm (Experimental):**
+- Base Platform: PhpStorm 2024.3  
+- Bundled Plugins: Java, PHP (native support)
+- Status: Java PSI compatibility issues
+- Java Version: JDK 21+
+- Kotlin Version: 1.9.24
+
+**Community Edition (Java-Only):**
+- Base Platform: IntelliJ Community 2024.3
+- Bundled Plugins: Java (native support)
+- PHP Support: Not available (Community limitation)
+- Java Version: JDK 21+
+- Kotlin Version: 1.9.24
+
+**Platform Selection:**
+```bash
+# Ultimate Edition (default)
+./gradlew build
+
+# PhpStorm
+./gradlew -Pidea.platform=phpstorm build
+
+# Community Edition
+./gradlew -Pidea.platform=community build
+```
 
 ### **Architecture Overview**
 
@@ -131,14 +177,14 @@ JetbrainsVoitta can be installed in several ways depending on your setup and req
 
 Before installing JetBrains-Voitta, ensure you have:
 
-1. **IntelliJ IDEA Ultimate 2024.3+ or PhpStorm 2024.3+** (Ultimate/Professional Edition required for PHP support)
+1. **IntelliJ IDEA 2024.3+** (Ultimate Edition recommended), **PhpStorm 2024.3+**, or **IntelliJ Community 2024.3+**
 2. **Java JDK 21+** configured in your IDE  
 3. **MCP Server Plugin** installed and enabled
    - Go to **Settings** → **Plugins** → **Marketplace**
    - Search for "MCP Server" and install it
    - Restart your IDE after installation
 
-> **Note**: This plugin requires **Ultimate Edition** or **PhpStorm** for full PHP support. Community Edition is not currently supported.
+> **Note**: This plugin is built for **PhpStorm** and includes full Java and PHP support. IntelliJ Ultimate Edition support can be added - see TODO section below.
 
 ### **Method 1: Install from Built Plugin (Recommended)**
 
@@ -148,37 +194,46 @@ Before installing JetBrains-Voitta, ensure you have:
 git clone <repository-url>
 cd jetbrains-voitta
 
-# Build the plugin
+# Build the plugin (Ultimate Edition)
 ./gradlew build
 
+# Or build for PhpStorm
+./gradlew -Pidea.platform=phpstorm build
+
 # The built plugin will be in build/distributions/
+# - JetbrainsVoitta-Ultimate-1.0-SNAPSHOT.zip (Ultimate Edition)
+# - JetbrainsVoitta-PhpStorm-1.0-SNAPSHOT.zip (PhpStorm)
 ```
 
 #### **Step 2: Install the Plugin**
 1. Open **IntelliJ IDEA**
 2. Go to **Settings** → **Plugins**
 3. Click the **⚙️** (gear) icon → **Install Plugin from Disk...**
-4. Navigate to `build/distributions/JetbrainsVoitta-1.0-SNAPSHOT.zip`
-5. Click **OK** and restart IntelliJ IDEA
+4. Navigate to the appropriate distribution:
+   - `build/distributions/JetbrainsVoitta-Ultimate-1.0-SNAPSHOT.zip` (for Ultimate)
+   - `build/distributions/JetbrainsVoitta-PhpStorm-1.0-SNAPSHOT.zip` (for PhpStorm)
+   - `build/distributions/JetbrainsVoitta-Community-1.0-SNAPSHOT.zip` (for Community)
+5. Click **OK** and restart your IDE
 
 ## Testing the Plugin
 
 ### **Running the Plugin**
 
-The plugin can be tested with full Java and PHP support using simple gradle commands:
+The plugin can be tested in different IDE environments:
 
 ```bash
-# Run in IntelliJ IDEA Ultimate (default)
+# Run in IntelliJ Ultimate (default)
 ./gradlew runIde
 
-# Run in IntelliJ IDEA Ultimate (explicit)
-./gradlew runIntelliJ
+# Build and test Ultimate Edition
+./gradlew build && ./gradlew runIde
 
-# Run with full PHP support
-./gradlew runPhpStorm
+# Build and test PhpStorm (experimental)
+./gradlew -Pidea.platform=phpstorm build
+# Note: PhpStorm runtime currently has Java PSI compatibility issues
 ```
 
-All commands launch IntelliJ Ultimate Edition 2024.3 with the plugin loaded. Both Java and PHP languages are fully supported with native IDE integration.
+**Recommended**: Use Ultimate Edition for the most stable experience with full Java support.
 
 ### **What to Test**
 
@@ -864,63 +919,65 @@ suggestions
 
 ---
 
-## 🚧 TODO: Community Edition Support
+## 🚧 Platform Support Status
 
-**Current Status**: This plugin currently requires **IntelliJ Ultimate Edition** or **PhpStorm** for full functionality.
+**Current Status**: This plugin supports **multi-platform builds** across IntelliJ Ultimate, Community Edition, and PhpStorm.
 
-### For Community Edition Users
+### ✅ **IntelliJ Ultimate Edition (Recommended)**
+- ✅ Full Java PSI support
+- ✅ Complete debugging functionality  
+- ✅ AST analysis and complexity metrics
+- ✅ Gradle build tasks work perfectly
+- ✅ Plugin distribution: `JetbrainsVoitta-Ultimate-*.zip`
+- ✅ PHP support planned via external plugin
 
-If you're using IntelliJ IDEA Community Edition, you have these options:
+### ✅ **IntelliJ Community Edition (Java-Only)**
+- ✅ Full Java PSI support
+- ✅ Complete debugging functionality for Java
+- ✅ AST analysis and complexity metrics for Java
+- ✅ Gradle build tasks work perfectly
+- ✅ Plugin distribution: `JetbrainsVoitta-Community-*.zip`
+- ❌ PHP support not available (Community Edition limitation)
 
-#### Option 1: Java-Only Support (Recommended for Community)
-- Modify `build.gradle.kts` to use `"IC"` instead of `"IU"`
-- Remove PHP plugin dependency: `bundledPlugin("com.jetbrains.php")`
-- Comment out PHP analyzer registration in `LanguageAstAnalyzer.kt`
-- All Java features will work perfectly
-- Universal tools will work with Java files
+### ⚠️ **PhpStorm (Issues)**
+- ❌ Java PSI compatibility problems
+- ❌ Missing Java-specific AST classes
+- ❌ Debug tools fail to compile
+- ✅ Gradle build configuration exists
+- ✅ Plugin distribution: `JetbrainsVoitta-PhpStorm-*.zip`
 
-#### Option 2: External PHP Plugin Dependency
-- Keep Community Edition base but add PHP as external dependency
-- Add `plugin("com.jetbrains.php", "243.12818.47")` to dependencies
-- Implement runtime detection for graceful fallback
-- More complex but provides PHP support
+### 🚧 **Future Enhancements**
 
-#### Option 3: Upgrade to Ultimate
-- Purchase IntelliJ Ultimate license
-- Get full Java + PHP + more IDE features
-- Simplest solution for professional development
+#### **PHP Support for Ultimate Edition**
+- [ ] Resolve PHP plugin external dependency version issues
+- [ ] Add PHP analyzer implementation  
+- [ ] Enable PHP tools in Ultimate Edition builds
+- [ ] Test PHP functionality across all Universal tools
 
-### Implementation Tasks for Community Support
+#### **PhpStorm Java PSI Compatibility**
+- [ ] Investigate Java PSI availability in PhpStorm base platform
+- [ ] Find alternative approach for Java analysis in PhpStorm
+- [ ] Implement PhpStorm-specific Java tool variants
+- [ ] Resolve debug tool compilation issues
 
-**High Priority:**
-- [ ] Create Community Edition build variant
-- [ ] Implement graceful PHP plugin detection
-- [ ] Add conditional PHP tool registration
-- [ ] Update documentation with Community Edition instructions
-
-**Medium Priority:**
-- [ ] Add build profiles for different IDE targets
-- [ ] Create automated testing for Community Edition
-- [ ] Implement feature detection UI
-- [ ] Add Community Edition CI/CD pipeline
-
-**Low Priority:**
-- [ ] Create separate Community Edition distribution
-- [ ] Add runtime IDE detection and feature flagging
-- [ ] Implement plugin marketplace compatibility matrix
+#### **Advanced Features**
+- [ ] Add Python language support
+- [ ] Implement JavaScript/TypeScript analysis
+- [ ] Add Go language analyzer
+- [ ] Create universal language detection framework
 
 ### Contributing
 
-If you'd like to help add Community Edition support, please:
+If you'd like to help improve platform support, please:
 1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/community-edition`
-3. Implement one of the options above
+2. Create a feature branch: `git checkout -b feature/platform-improvements`
+3. Implement enhancements for Ultimate, Community, or PhpStorm support
 4. Submit a pull request with tests
 
 ### Contact
 
-For Community Edition support questions or contributions, please:
-- Open an issue with the `community-edition` label
+For platform support questions or contributions, please:
+- Open an issue with the appropriate platform label (`ultimate`, `community`, `phpstorm`)
 - Join our Discord/Slack channel for development discussions
-- Submit feature requests for specific Community Edition needs
+- Submit feature requests for specific platform needs
 

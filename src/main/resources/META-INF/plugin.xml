@@ -21,7 +21,7 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
-    <depends>com.jetbrains.php</depends>
+    <depends optional="true" config-file="php-support.xml">com.jetbrains.php</depends>
     <depends>com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
@@ -45,13 +45,15 @@
         <mcpTool implementation="ai.voitta.jetbrains.ast.SuggestBreakpointLinesTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
         
-        <!-- PHP AST Tools -->
+        <!-- PHP AST Tools - temporarily disabled due to API compatibility issues -->
+        <!--
         <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpFileAstTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodDetailsTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.php.SuggestPhpBreakpointLinesTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodComplexityTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.php.DetectPhpCodePatternsTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpClassHierarchyTool"/>
+        -->
         
         <!-- Universal Language-Agnostic Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalFileAstTool"/>

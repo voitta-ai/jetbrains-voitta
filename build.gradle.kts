@@ -23,19 +23,36 @@ java {
     }
 }
 
+// Build configuration for IntelliJ Ultimate, PhpStorm, and Community Edition
+val ideaPlatform = project.findProperty("idea.platform") as String? ?: "ultimate"
+
 // Configure IntelliJ Platform Gradle Plugin
 // Read more: https://plugins.jetbrains.com/docs/intellij/tools-intellij-platform-gradle-plugin.html
 dependencies {
     intellijPlatform {
-        create("IU", "2024.3") // Ultimate Edition includes PHP support
+        when (ideaPlatform) {
+            "ultimate" -> {
+                create("IU", "2024.3") // Ultimate Edition
+                bundledPlugin("com.intellij.java") // Java support in Ultimate
+                // PHP as external plugin for Ultimate (commenting out for now due to version issues)
+                // plugin("com.jetbrains.php", "243.12818.47")
+            }
+            "phpstorm" -> {
+                create("PS", "2024.3") // PhpStorm
+                // Both Java and PHP are natively supported in PhpStorm
+                // No need to explicitly add bundled plugins for PhpStorm
+            }
+            "community" -> {
+                create("IC", "2024.3") // Community Edition
+                bundledPlugin("com.intellij.java") // Java support in Community
+                // PHP not available in Community Edition - Java-only support
+            }
+            else -> throw GradleException("Unsupported platform: $ideaPlatform. Use 'ultimate', 'phpstorm', or 'community'")
+        }
+        
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         plugin("com.intellij.mcpServer", "1.0.30")
-
-        // Add necessary plugin dependencies for compilation here
-        bundledPlugin("com.intellij.java")
-        bundledPlugin("com.jetbrains.php") // Available in Ultimate Edition
     }
-    
 }
 
 // this has to be compileOnly otherwise there is class collision for kotlinx serialization
@@ -58,6 +75,7 @@ intellijPlatform {
             - Symbol navigation and reference finding
             - Language-agnostic tool framework
             - Powered by Voitta AI
+            - Built for ${ideaPlatform.capitalize()}
         """.trimIndent()
     }
 }
@@ -69,25 +87,91 @@ tasks {
         targetCompatibility = "21"
     }
     
-    // Default runIde task (IntelliJ IDEA Community)
+    // Configure plugin distribution name based on platform
+    val platformSuffix = when (ideaPlatform) {
+        "ultimate" -> "Ultimate"
+        "phpstorm" -> "PhpStorm"
+        "community" -> "Community"
+        else -> ""
+    }
+    
+    // Configure archive name for different platforms
+    withType<Jar> {
+        archiveBaseName.set("JetbrainsVoitta-${platformSuffix}")
+    }
+    
+    // Configure distribution archive name
+    withType<Zip> {
+        archiveBaseName.set("JetbrainsVoitta-${platformSuffix}")
+    }
+    
+    // Default tasks for Ultimate Edition (default platform)
     runIde {
-        // Uses default IC configuration from dependencies
+        description = "Run ${when (ideaPlatform) {
+            "ultimate" -> "IntelliJ Ultimate"
+            "phpstorm" -> "PhpStorm"
+            "community" -> "IntelliJ Community"
+            else -> "IntelliJ"
+        }} with the plugin"
     }
     
-    // Explicit IntelliJ IDEA task
-    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runIntelliJ") {
+    register("runIntelliJ") {
         group = "intellij platform"
-        description = "Run IntelliJ IDEA with the plugin"
-        // Uses same configuration as runIde
+        description = "Run IntelliJ Ultimate with the plugin"
+        doFirst {
+            project.setProperty("idea.platform", "ultimate")
+        }
+        finalizedBy("runIde")
     }
     
-    // PhpStorm-specific task
-    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runPhpStorm") {
-        group = "intellij platform" 
+    // PhpStorm-specific tasks
+    register("buildPhpStorm") {
+        group = "phpstorm"
+        description = "Build plugin for PhpStorm"
+        dependsOn("build")
+        doLast {
+            project.setProperty("idea.platform", "phpstorm")
+        }
+    }
+    
+    register("buildPluginPhpStorm") {
+        group = "phpstorm" 
+        description = "Build plugin distribution for PhpStorm"
+        dependsOn("buildPhpStorm")
+    }
+    
+    register("runPhpStorm") {
+        group = "phpstorm"
         description = "Run PhpStorm with the plugin"
-        
-        // For PhpStorm, we'll use the same IntelliJ Community base but with PHP plugin
-        // This ensures PHP plugin is available in the IDE
+        doFirst {
+            project.setProperty("idea.platform", "phpstorm")
+        }
+        finalizedBy("runIde")
+    }
+    
+    // Community Edition specific tasks
+    register("buildCommunity") {
+        group = "community"
+        description = "Build plugin for Community Edition"
+        dependsOn("build")
+        doLast {
+            project.setProperty("idea.platform", "community")
+        }
+    }
+    
+    register("buildPluginCommunity") {
+        group = "community" 
+        description = "Build plugin distribution for Community Edition"
+        dependsOn("buildCommunity")
+    }
+    
+    register("runCommunity") {
+        group = "community"
+        description = "Run IntelliJ Community Edition with the plugin"
+        doFirst {
+            project.setProperty("idea.platform", "community")
+        }
+        finalizedBy("runIde")
     }
 }
 
