@@ -13,14 +13,15 @@
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enhanced MCP tools for AST analysis and debug inspection.<br>
-        <em>Provides advanced debugging tools with rich variable inspection, full stack trace support, AST analysis, and code pattern detection for Java projects.</em>
+        Enhanced MCP tools for AST analysis and debug inspection supporting both Java and PHP.<br>
+        <em>Provides advanced debugging tools with rich variable inspection, full stack trace support, AST analysis, and code pattern detection for Java and PHP projects.</em>
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
+    <depends>com.jetbrains.php</depends>
     <depends>com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
@@ -43,6 +44,22 @@
         <!-- Enhanced Method Analysis Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.ast.SuggestBreakpointLinesTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
+        
+        <!-- PHP AST Tools -->
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpFileAstTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodDetailsTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.SuggestPhpBreakpointLinesTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodComplexityTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.DetectPhpCodePatternsTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpClassHierarchyTool"/>
+        
+        <!-- Universal Language-Agnostic Tools -->
+        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalFileAstTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalMethodDetailsTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.common.SuggestUniversalBreakpointLinesTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalMethodComplexityTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.common.DetectUniversalCodePatternsTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalClassHierarchyTool"/>
         
         <!-- Navigation Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetSymbolAtPositionTool"/>

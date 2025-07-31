@@ -736,7 +736,7 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                 {
                     "name": "${JsonUtils.escapeJson(details.name)}",
                     "className": "${JsonUtils.escapeJson(details.className)}",
-                    "signature": "${JsonUtils.escapeJson(details.signature)}",
+                    "methodName": "${JsonUtils.escapeJson(details.name)}",
                     "file": "${JsonUtils.escapeJson(details.file)}",
                     "lineRange": {
                         "signatureLineNumber": ${details.lineRange.signatureLineNumber},
@@ -751,8 +751,7 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                         "linesOfCode": ${details.complexity.linesOfCode},
                         "parameterCount": ${details.complexity.parameterCount}
                     },
-                    "breakpointSuggestions": $suggestionsJson,
-                    "modifiers": [${details.modifiers.joinToString(",") { "\"$it\"" }}]
+                    "breakpointSuggestions": $suggestionsJson
                 }
                 """.trimIndent()
             }
@@ -784,13 +783,11 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                     val details = MethodDetails(
                         name = method.name,
                         className = psiClass.name ?: "Unknown",
-                        signature = AstUtils.formatSignature(method),
                         file = filePath,
                         lineRange = lineRange,
                         complexity = complexity,
-                        breakpointSuggestions = breakpointSuggestions,
                         parameters = AstUtils.getMethodParameters(method),
-                        modifiers = AstUtils.extractModifiers(method.modifierList)
+                        breakpointSuggestions = breakpointSuggestions
                     )
                     methodDetailsList.add(details)
                 }
