@@ -1,6 +1,7 @@
 package ai.voitta.jetbrains.ast.common
 
 import ai.voitta.jetbrains.ast.*
+import ai.voitta.jetbrains.utils.PlatformUtils
 import com.intellij.openapi.project.Project
 import com.intellij.psi.PsiFile
 
@@ -84,18 +85,22 @@ object LanguageAnalyzerFactory {
     private val analyzers = mutableListOf<LanguageAstAnalyzer>()
     
     init {
-        // Register default analyzers
-        registerAnalyzer(JavaAstAnalyzer())
+        // Register analyzers based on platform capabilities
+        if (PlatformUtils.hasJavaSupport) {
+            try {
+                registerAnalyzer(JavaAstAnalyzer())
+            } catch (e: NoClassDefFoundError) {
+                // Java analyzer not available in this build
+            }
+        }
         
-        // Register PHP analyzer only if PHP plugin is available
-        try {
-            // Check if PHP plugin classes are available at runtime
-            Class.forName("com.jetbrains.php.lang.psi.PhpFile")
-            // registerAnalyzer(ai.voitta.jetbrains.ast.php.PhpAstAnalyzer())
-            // TODO: PHP analyzer implementation pending - classes available but implementation incomplete
-        } catch (e: ClassNotFoundException) {
-            // PHP plugin not available - running in Community Edition or PHP plugin not installed
-            // Only Java support will be available
+        if (PlatformUtils.hasPhpSupport) {
+            try {
+                // registerAnalyzer(ai.voitta.jetbrains.ast.php.PhpAstAnalyzer())
+                // TODO: PHP analyzer implementation pending - classes available but implementation incomplete
+            } catch (e: NoClassDefFoundError) {
+                // PHP analyzer not available in this build
+            }
         }
     }
     

@@ -20,40 +20,14 @@
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.java</depends>
+    <depends optional="true" config-file="java-support.xml">com.intellij.modules.java</depends>
     <depends optional="true" config-file="php-support.xml">com.jetbrains.php</depends>
     <depends>com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
         
-        <!-- Enhanced Debug Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetCurrentStackTraceTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSessionInfoTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSnapshotTool"/>
-        
-        <!-- Variable Evaluation Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.debug.EvaluateExpressionTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetFrameVariablesTool"/>
-        
-        <!-- Java AST Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetJavaFileAstTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetClassHierarchyTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodComplexityTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.DetectCodePatternsTool"/>
-        
-        <!-- Enhanced Method Analysis Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.SuggestBreakpointLinesTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
-        
-        <!-- PHP AST Tools - temporarily disabled due to API compatibility issues -->
-        <!--
-        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpFileAstTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodDetailsTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.php.SuggestPhpBreakpointLinesTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodComplexityTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.php.DetectPhpCodePatternsTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpClassHierarchyTool"/>
-        -->
+        <!-- Platform Information Tool (Always Available) -->
+        <!-- mcpTool implementation="ai.voitta.jetbrains.utils.GetPlatformInfoTool"/ -->
         
         <!-- Universal Language-Agnostic Tools -->
         <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalFileAstTool"/>
@@ -63,14 +37,15 @@
         <mcpTool implementation="ai.voitta.jetbrains.ast.common.DetectUniversalCodePatternsTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalClassHierarchyTool"/>
         
-        <!-- Navigation Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetSymbolAtPositionTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.FindAllReferencesTool"/>
     </extensions>
 
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-
+        <!-- MCP Server initialization on startup -->
+        <postStartupActivity implementation="ai.voitta.jetbrains.startup.McpServerInitializer"/>
+        
+        <!-- MCP Health check REST endpoint -->
+        <restService implementation="ai.voitta.jetbrains.startup.McpHealthCheckService"/>
     </extensions>
 </idea-plugin>

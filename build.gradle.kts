@@ -75,7 +75,7 @@ intellijPlatform {
             - Symbol navigation and reference finding
             - Language-agnostic tool framework
             - Powered by Voitta AI
-            - Built for ${ideaPlatform.capitalize()}
+            - Built for ${ideaPlatform.replaceFirstChar { it.uppercase() }}
         """.trimIndent()
     }
 }
@@ -105,78 +105,113 @@ tasks {
         archiveBaseName.set("JetbrainsVoitta-${platformSuffix}")
     }
     
-    // Default tasks for Ultimate Edition (default platform)
+    // Configure the main runIde task with debug port
     runIde {
-        description = "Run ${when (ideaPlatform) {
-            "ultimate" -> "IntelliJ Ultimate"
-            "phpstorm" -> "PhpStorm"
-            "community" -> "IntelliJ Community"
-            else -> "IntelliJ"
-        }} with the plugin"
-    }
-    
-    register("runIntelliJ") {
-        group = "intellij platform"
-        description = "Run IntelliJ Ultimate with the plugin"
+        // Force built-in server to use port 63344 for all sandbox IDEs
+        jvmArguments.add("-Didea.builtin.server.port=63344")
+        systemProperties["idea.builtin.server.port"] = "63344"
+        systemProperties["log.level.all"] = "DEBUG"
+        
+        // Also add as environment variable for extra reliability
+        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
+        
+        // Log the configuration at runtime
         doFirst {
-            project.setProperty("idea.platform", "ultimate")
+            println("🔌 Starting IDE with built-in server port: 63344")
+            println("🏗️ Platform: ${project.findProperty("idea.platform") ?: "ultimate"}")
         }
-        finalizedBy("runIde")
     }
     
-    // PhpStorm-specific tasks
-    register("buildPhpStorm") {
-        group = "phpstorm"
-        description = "Build plugin for PhpStorm"
-        dependsOn("build")
+    // Specific IDE run tasks that properly delegate to runIde with platform set
+    register("runIntelliJ") {
+        group = "run"  
+        description = "Run IntelliJ Ultimate with the plugin (port 63344)"
         doLast {
-            project.setProperty("idea.platform", "phpstorm")
+            // Use the configured runIde task with platform property
+            exec {
+                environment("GRADLE_OPTS", "-Didea.platform=ultimate")
+                commandLine("./gradlew", "-Pidea.platform=ultimate", "runIde")
+            }
+        }
+    }
+    
+    register("runPhpStorm") {
+        group = "run"
+        description = "Run PhpStorm with the plugin (port 63344)"
+        doLast {
+            // Use the configured runIde task with platform property
+            exec {
+                environment("GRADLE_OPTS", "-Didea.platform=phpstorm")
+                commandLine("./gradlew", "-Pidea.platform=phpstorm", "runIde")
+            }
+        }
+    }
+    
+    register("runCommunity") {
+        group = "run"
+        description = "Run IntelliJ Community Edition with the plugin (port 63344)"
+        doLast {
+            // Use the configured runIde task with platform property
+            exec {
+                environment("GRADLE_OPTS", "-Didea.platform=community")
+                commandLine("./gradlew", "-Pidea.platform=community", "runIde")
+            }
+        }
+    }
+    
+    // Build plugin distribution tasks
+    register("buildPluginIntelliJ") {
+        group = "build"
+        description = "Build plugin distribution for IntelliJ Ultimate"
+        doLast {
+            exec {
+                commandLine("./gradlew", "-Pidea.platform=ultimate", "buildPlugin")
+            }
         }
     }
     
     register("buildPluginPhpStorm") {
-        group = "phpstorm" 
+        group = "build"
         description = "Build plugin distribution for PhpStorm"
-        dependsOn("buildPhpStorm")
-    }
-    
-    register("runPhpStorm") {
-        group = "phpstorm"
-        description = "Run PhpStorm with the plugin"
-        doFirst {
-            project.setProperty("idea.platform", "phpstorm")
-        }
-        finalizedBy("runIde")
-    }
-    
-    // Community Edition specific tasks
-    register("buildCommunity") {
-        group = "community"
-        description = "Build plugin for Community Edition"
-        dependsOn("build")
         doLast {
-            project.setProperty("idea.platform", "community")
+            exec {
+                commandLine("./gradlew", "-Pidea.platform=phpstorm", "buildPlugin")
+            }
         }
     }
     
     register("buildPluginCommunity") {
-        group = "community" 
+        group = "build"
         description = "Build plugin distribution for Community Edition"
-        dependsOn("buildCommunity")
-    }
-    
-    register("runCommunity") {
-        group = "community"
-        description = "Run IntelliJ Community Edition with the plugin"
-        doFirst {
-            project.setProperty("idea.platform", "community")
+        doLast {
+            exec {
+                commandLine("./gradlew", "-Pidea.platform=community", "buildPlugin")
+            }
         }
-        finalizedBy("runIde")
     }
 }
 
 kotlin {
     compilerOptions {
         jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    }
+    
+    sourceSets {
+        main {
+            kotlin {
+                // Exclude Java-dependent files when building for PhpStorm
+                if (ideaPlatform == "phpstorm") {
+                    exclude("**/ai/voitta/jetbrains/ast/JavaAstTools.kt")
+                    exclude("**/ai/voitta/jetbrains/ast/AstUtils.kt")
+                    exclude("**/ai/voitta/jetbrains/ast/NavigationTools.kt")
+                    exclude("**/ai/voitta/jetbrains/ast/common/JavaAstAnalyzer.kt")
+                    exclude("**/ai/voitta/jetbrains/debug/**/*.kt")
+                    // Keep universal tools and PHP tools
+                } else {
+                    // Exclude stub when building for IntelliJ
+                    exclude("**/ai/voitta/jetbrains/ast/common/StubJavaAstAnalyzer.kt")
+                }
+            }
+        }
     }
 }
