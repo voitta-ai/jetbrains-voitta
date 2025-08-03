@@ -122,40 +122,58 @@ tasks {
         }
     }
     
-    // Specific IDE run tasks that properly delegate to runIde with platform set
-    register("runIntelliJ") {
+    // Create separate runIde tasks for each platform with proper port configuration
+    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runIntelliJ") {
         group = "run"  
         description = "Run IntelliJ Ultimate with the plugin (port 63344)"
-        doLast {
-            // Use the configured runIde task with platform property
-            exec {
-                environment("GRADLE_OPTS", "-Didea.platform=ultimate")
-                commandLine("./gradlew", "-Pidea.platform=ultimate", "runIde")
-            }
+        
+        // Set the platform type
+        type.set(org.jetbrains.intellij.platform.gradle.models.ProductRelease.Type.IU)
+        version.set("2024.3")
+        
+        // Force port 63344
+        jvmArguments.add("-Didea.builtin.server.port=63344")
+        systemProperties["idea.builtin.server.port"] = "63344"
+        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
+        
+        doFirst {
+            println("🔌 Starting IntelliJ Ultimate with built-in server port: 63344")
         }
     }
     
-    register("runPhpStorm") {
+    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runPhpStorm") {
         group = "run"
         description = "Run PhpStorm with the plugin (port 63344)"
-        doLast {
-            // Use the configured runIde task with platform property
-            exec {
-                environment("GRADLE_OPTS", "-Didea.platform=phpstorm")
-                commandLine("./gradlew", "-Pidea.platform=phpstorm", "runIde")
-            }
+        
+        // Set the platform type
+        type.set(org.jetbrains.intellij.platform.gradle.models.ProductRelease.Type.PS)
+        version.set("2024.3")
+        
+        // Force port 63344
+        jvmArguments.add("-Didea.builtin.server.port=63344")
+        systemProperties["idea.builtin.server.port"] = "63344"
+        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
+        
+        doFirst {
+            println("🔌 Starting PhpStorm with built-in server port: 63344")
         }
     }
     
-    register("runCommunity") {
+    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runCommunity") {
         group = "run"
         description = "Run IntelliJ Community Edition with the plugin (port 63344)"
-        doLast {
-            // Use the configured runIde task with platform property
-            exec {
-                environment("GRADLE_OPTS", "-Didea.platform=community")
-                commandLine("./gradlew", "-Pidea.platform=community", "runIde")
-            }
+        
+        // Set the platform type
+        type.set(org.jetbrains.intellij.platform.gradle.models.ProductRelease.Type.IC)
+        version.set("2024.3")
+        
+        // Force port 63344
+        jvmArguments.add("-Didea.builtin.server.port=63344")
+        systemProperties["idea.builtin.server.port"] = "63344"
+        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
+        
+        doFirst {
+            println("🔌 Starting IntelliJ Community with built-in server port: 63344")
         }
     }
     
