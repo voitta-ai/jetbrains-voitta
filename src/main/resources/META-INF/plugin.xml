@@ -26,16 +26,11 @@
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
         
-        <!-- Platform Information Tool (Always Available) -->
-        <!-- mcpTool implementation="ai.voitta.jetbrains.utils.GetPlatformInfoTool"/ -->
+        <!-- Language-agnostic navigation tools -->
+        <mcpTool implementation="ai.voitta.jetbrains.ast.GetSymbolAtPositionTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.FindAllReferencesTool"/>
         
-        <!-- Universal Language-Agnostic Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalFileAstTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalMethodDetailsTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.SuggestUniversalBreakpointLinesTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalMethodComplexityTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.DetectUniversalCodePatternsTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.common.GetUniversalClassHierarchyTool"/>
+        <!-- NOTE: Language-specific tools are registered in java-support.xml and php-support.xml -->
         
     </extensions>
 

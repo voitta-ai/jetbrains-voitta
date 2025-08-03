@@ -96,9 +96,11 @@ object LanguageAnalyzerFactory {
         
         if (PlatformUtils.hasPhpSupport) {
             try {
-                // registerAnalyzer(ai.voitta.jetbrains.ast.php.PhpAstAnalyzer())
-                // TODO: PHP analyzer implementation pending - classes available but implementation incomplete
-            } catch (e: NoClassDefFoundError) {
+                // Use reflection to avoid compile-time dependency
+                val phpAnalyzerClass = Class.forName("ai.voitta.jetbrains.ast.php.PhpAstAnalyzer")
+                val phpAnalyzer = phpAnalyzerClass.getDeclaredConstructor().newInstance() as LanguageAstAnalyzer
+                registerAnalyzer(phpAnalyzer)
+            } catch (e: Exception) {
                 // PHP analyzer not available in this build
             }
         }

@@ -34,13 +34,12 @@ dependencies {
             "ultimate" -> {
                 create("IU", "2024.3") // Ultimate Edition
                 bundledPlugin("com.intellij.java") // Java support in Ultimate
-                // PHP as external plugin for Ultimate (commenting out for now due to version issues)
-                // plugin("com.jetbrains.php", "243.12818.47")
+                // PHP plugin for Ultimate Edition - commenting out for now due to version issues
+                // plugin("com.jetbrains.php", "243.21565.197")
             }
             "phpstorm" -> {
                 create("PS", "2024.3") // PhpStorm
-                // Both Java and PHP are natively supported in PhpStorm
-                // No need to explicitly add bundled plugins for PhpStorm
+                // PHP and Java are both bundled in PhpStorm - no explicit dependency needed
             }
             "community" -> {
                 create("IC", "2024.3") // Community Edition
@@ -121,92 +120,6 @@ tasks {
             println("🏗️ Platform: ${project.findProperty("idea.platform") ?: "ultimate"}")
         }
     }
-    
-    // Create separate runIde tasks for each platform with proper port configuration
-    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runIntelliJ") {
-        group = "run"  
-        description = "Run IntelliJ Ultimate with the plugin (port 63344)"
-        
-        // Set the platform type
-        type.set(org.jetbrains.intellij.platform.gradle.models.ProductRelease.Type.IU)
-        version.set("2024.3")
-        
-        // Force port 63344
-        jvmArguments.add("-Didea.builtin.server.port=63344")
-        systemProperties["idea.builtin.server.port"] = "63344"
-        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
-        
-        doFirst {
-            println("🔌 Starting IntelliJ Ultimate with built-in server port: 63344")
-        }
-    }
-    
-    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runPhpStorm") {
-        group = "run"
-        description = "Run PhpStorm with the plugin (port 63344)"
-        
-        // Set the platform type
-        type.set(org.jetbrains.intellij.platform.gradle.models.ProductRelease.Type.PS)
-        version.set("2024.3")
-        
-        // Force port 63344
-        jvmArguments.add("-Didea.builtin.server.port=63344")
-        systemProperties["idea.builtin.server.port"] = "63344"
-        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
-        
-        doFirst {
-            println("🔌 Starting PhpStorm with built-in server port: 63344")
-        }
-    }
-    
-    register<org.jetbrains.intellij.platform.gradle.tasks.RunIdeTask>("runCommunity") {
-        group = "run"
-        description = "Run IntelliJ Community Edition with the plugin (port 63344)"
-        
-        // Set the platform type
-        type.set(org.jetbrains.intellij.platform.gradle.models.ProductRelease.Type.IC)
-        version.set("2024.3")
-        
-        // Force port 63344
-        jvmArguments.add("-Didea.builtin.server.port=63344")
-        systemProperties["idea.builtin.server.port"] = "63344"
-        environment("IDEA_BUILTIN_SERVER_PORT", "63344")
-        
-        doFirst {
-            println("🔌 Starting IntelliJ Community with built-in server port: 63344")
-        }
-    }
-    
-    // Build plugin distribution tasks
-    register("buildPluginIntelliJ") {
-        group = "build"
-        description = "Build plugin distribution for IntelliJ Ultimate"
-        doLast {
-            exec {
-                commandLine("./gradlew", "-Pidea.platform=ultimate", "buildPlugin")
-            }
-        }
-    }
-    
-    register("buildPluginPhpStorm") {
-        group = "build"
-        description = "Build plugin distribution for PhpStorm"
-        doLast {
-            exec {
-                commandLine("./gradlew", "-Pidea.platform=phpstorm", "buildPlugin")
-            }
-        }
-    }
-    
-    register("buildPluginCommunity") {
-        group = "build"
-        description = "Build plugin distribution for Community Edition"
-        doLast {
-            exec {
-                commandLine("./gradlew", "-Pidea.platform=community", "buildPlugin")
-            }
-        }
-    }
 }
 
 kotlin {
@@ -217,17 +130,21 @@ kotlin {
     sourceSets {
         main {
             kotlin {
-                // Exclude Java-dependent files when building for PhpStorm
-                if (ideaPlatform == "phpstorm") {
-                    exclude("**/ai/voitta/jetbrains/ast/JavaAstTools.kt")
-                    exclude("**/ai/voitta/jetbrains/ast/AstUtils.kt")
-                    exclude("**/ai/voitta/jetbrains/ast/NavigationTools.kt")
-                    exclude("**/ai/voitta/jetbrains/ast/common/JavaAstAnalyzer.kt")
-                    exclude("**/ai/voitta/jetbrains/debug/**/*.kt")
-                    // Keep universal tools and PHP tools
-                } else {
-                    // Exclude stub when building for IntelliJ
-                    exclude("**/ai/voitta/jetbrains/ast/common/StubJavaAstAnalyzer.kt")
+                when (ideaPlatform) {
+                    "community" -> {
+                        // Community Edition: Java only, no PHP
+                        exclude("**/ai/voitta/jetbrains/ast/php/**/*.kt")
+                        exclude("**/ai/voitta/jetbrains/ast/common/StubJavaAstAnalyzer.kt")
+                    }
+                    "phpstorm" -> {
+                        // PhpStorm: Both Java and PHP supported
+                        exclude("**/ai/voitta/jetbrains/ast/common/StubJavaAstAnalyzer.kt")
+                    }
+                    "ultimate" -> {
+                        // Ultimate: Java only for now (PHP plugin dependency issues)
+                        exclude("**/ai/voitta/jetbrains/ast/php/**/*.kt")
+                        exclude("**/ai/voitta/jetbrains/ast/common/StubJavaAstAnalyzer.kt")
+                    }
                 }
             }
         }

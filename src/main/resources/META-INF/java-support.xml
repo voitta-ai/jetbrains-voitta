@@ -21,9 +21,6 @@
         <mcpTool implementation="ai.voitta.jetbrains.ast.SuggestBreakpointLinesTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
         
-        <!-- Navigation Tools (Java-specific) -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetSymbolAtPositionTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.FindAllReferencesTool"/>
         
     </extensions>
 </idea-plugin>

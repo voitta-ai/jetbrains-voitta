@@ -22,7 +22,7 @@ data class PhpFileAstArgs(
 )
 
 class GetPhpFileAstTool : AbstractMcpTool<PhpFileAstArgs>(PhpFileAstArgs.serializer()) {
-    override val name = "get_php_file_ast"
+    override val name = "php_get_file_ast"
     override val description = """
         Retrieves the AST (Abstract Syntax Tree) for a PHP file.
         Returns complete class structure including methods, fields, and metadata.
@@ -105,7 +105,7 @@ data class PhpMethodDetailsArgs(
 )
 
 class GetPhpMethodDetailsTool : AbstractMcpTool<PhpMethodDetailsArgs>(PhpMethodDetailsArgs.serializer()) {
-    override val name = "get_php_method_details"
+    override val name = "php_get_method_details"
     override val description = """
         Get detailed information about all methods in a PHP file including:
         - Method signature line number
@@ -157,7 +157,7 @@ data class PhpBreakpointSuggestionsArgs(
 )
 
 class SuggestPhpBreakpointLinesTool : AbstractMcpTool<PhpBreakpointSuggestionsArgs>(PhpBreakpointSuggestionsArgs.serializer()) {
-    override val name = "suggest_php_breakpoint_lines"
+    override val name = "php_suggest_breakpoint_lines"
     override val description = """
         Suggests optimal line numbers for setting breakpoints in PHP methods.
         Returns first executable line, key decision points, and method entry/exit points.
@@ -204,7 +204,7 @@ data class PhpComplexityArgs(
 )
 
 class GetPhpMethodComplexityTool : AbstractMcpTool<PhpComplexityArgs>(PhpComplexityArgs.serializer()) {
-    override val name = "get_php_method_complexity"
+    override val name = "php_get_method_complexity"
     override val description = """
         Calculates cyclomatic complexity for methods in a PHP file.
         
@@ -250,7 +250,7 @@ data class PhpCodePatternsArgs(
 )
 
 class DetectPhpCodePatternsTool : AbstractMcpTool<PhpCodePatternsArgs>(PhpCodePatternsArgs.serializer()) {
-    override val name = "detect_php_code_patterns"
+    override val name = "php_detect_code_patterns"
     override val description = """
         Detects common code patterns and potential issues in a PHP file.
         
@@ -296,7 +296,7 @@ data class PhpClassHierarchyArgs(
 )
 
 class GetPhpClassHierarchyTool : AbstractMcpTool<PhpClassHierarchyArgs>(PhpClassHierarchyArgs.serializer()) {
-    override val name = "get_php_class_hierarchy"
+    override val name = "php_get_class_hierarchy"
     override val description = """
         Retrieves class hierarchy information for a given PHP class.
         Shows inheritance relationships, implemented interfaces, and subclasses.
