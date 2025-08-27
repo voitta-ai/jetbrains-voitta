@@ -1,0 +1,26 @@
+<idea-plugin>
+    <!-- Java-specific tool registrations - only loaded when Java plugin is available -->
+    <extensions defaultExtensionNs="com.intellij.mcpServer">
+        
+        <!-- Enhanced Debug Tools (Java-specific) -->
+        <mcpTool implementation="ai.voitta.jetbrains.debug.GetCurrentStackTraceTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSessionInfoTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSnapshotTool"/>
+        
+        <!-- Variable Evaluation Tools (Java-specific) -->
+        <mcpTool implementation="ai.voitta.jetbrains.debug.EvaluateExpressionTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.debug.GetFrameVariablesTool"/>
+        
+        <!-- Java AST Tools -->
+        <mcpTool implementation="ai.voitta.jetbrains.ast.GetJavaFileAstTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.GetClassHierarchyTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodComplexityTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.DetectCodePatternsTool"/>
+        
+        <!-- Enhanced Method Analysis Tools -->
+        <mcpTool implementation="ai.voitta.jetbrains.ast.SuggestBreakpointLinesTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
+        
+        
+    </extensions>
+</idea-plugin>

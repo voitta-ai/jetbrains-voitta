@@ -211,7 +211,7 @@ data class ClassHierarchyArgs(
 )
 
 class GetClassHierarchyTool : AbstractMcpTool<ClassHierarchyArgs>(ClassHierarchyArgs.serializer()) {
-    override val name = "get_class_hierarchy"
+    override val name = "java_get_class_hierarchy"
     override val description = """
         Retrieves class hierarchy information for a given class.
         Shows inheritance relationships, implemented interfaces, and subclasses.
@@ -337,7 +337,7 @@ data class MethodComplexityArgs(
 )
 
 class GetMethodComplexityTool : AbstractMcpTool<MethodComplexityArgs>(MethodComplexityArgs.serializer()) {
-    override val name = "get_method_complexity"
+    override val name = "java_get_method_complexity"
     override val description = """
         Calculates cyclomatic complexity for methods in a Java file.
         
@@ -416,7 +416,7 @@ data class CodePatternsArgs(
 )
 
 class DetectCodePatternsTool : AbstractMcpTool<CodePatternsArgs>(CodePatternsArgs.serializer()) {
-    override val name = "detect_code_patterns"
+    override val name = "java_detect_code_patterns"
     override val description = """
         Detects common code patterns and potential issues in a Java file.
         
@@ -617,7 +617,7 @@ data class BreakpointSuggestionArgs(
 )
 
 class SuggestBreakpointLinesTool : AbstractMcpTool<BreakpointSuggestionArgs>(BreakpointSuggestionArgs.serializer()) {
-    override val name = "suggest_breakpoint_lines"
+    override val name = "java_suggest_breakpoint_lines"
     override val description = """
         Suggests optimal line numbers for setting breakpoints in methods.
         Returns first executable line, key decision points, and method entry/exit points.
@@ -686,7 +686,7 @@ data class MethodDetailsArgs(
 )
 
 class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArgs.serializer()) {
-    override val name = "get_method_details"
+    override val name = "java_get_method_details"
     override val description = """
         Get detailed information about all methods in a Java file including:
         - Method signature line number
@@ -736,7 +736,7 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                 {
                     "name": "${JsonUtils.escapeJson(details.name)}",
                     "className": "${JsonUtils.escapeJson(details.className)}",
-                    "signature": "${JsonUtils.escapeJson(details.signature)}",
+                    "methodName": "${JsonUtils.escapeJson(details.name)}",
                     "file": "${JsonUtils.escapeJson(details.file)}",
                     "lineRange": {
                         "signatureLineNumber": ${details.lineRange.signatureLineNumber},
@@ -751,8 +751,7 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                         "linesOfCode": ${details.complexity.linesOfCode},
                         "parameterCount": ${details.complexity.parameterCount}
                     },
-                    "breakpointSuggestions": $suggestionsJson,
-                    "modifiers": [${details.modifiers.joinToString(",") { "\"$it\"" }}]
+                    "breakpointSuggestions": $suggestionsJson
                 }
                 """.trimIndent()
             }
@@ -784,13 +783,11 @@ class GetMethodDetailsTool : AbstractMcpTool<MethodDetailsArgs>(MethodDetailsArg
                     val details = MethodDetails(
                         name = method.name,
                         className = psiClass.name ?: "Unknown",
-                        signature = AstUtils.formatSignature(method),
                         file = filePath,
                         lineRange = lineRange,
                         complexity = complexity,
-                        breakpointSuggestions = breakpointSuggestions,
                         parameters = AstUtils.getMethodParameters(method),
-                        modifiers = AstUtils.extractModifiers(method.modifierList)
+                        breakpointSuggestions = breakpointSuggestions
                     )
                     methodDetailsList.add(details)
                 }
