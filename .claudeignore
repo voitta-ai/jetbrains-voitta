@@ -1,0 +1,43 @@
+# Gradle build
+.gradle/
+build/
+out/
+!gradle/wrapper/gradle-wrapper.jar
+*.jar
+*.war
+*.class
+
+# IntelliJ / Eclipse
+.idea/
+*.iml
+*.ipr
+*.iws
+.classpath
+.project
+.settings/
+
+# IntelliJ Platform plugin sandbox
+.intellijPlatform/
+runIde.log
+
+# OS
+.DS_Store
+
+# Logs
+*.log
+
+# Secrets (also enforced via permissions.deny)
+.env
+.env.*
+!.env.example
+
+# Local Claude state
+.claude/settings.local.json
+.claude/sessions/
+.claude/tasks/
+.handoffs/
+
+# Backup
+*~
+.#*
+\#*

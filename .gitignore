@@ -22,3 +22,6 @@ out/
 
 *.log
 bin/
+.gitnexus
+
+.handoffs/
