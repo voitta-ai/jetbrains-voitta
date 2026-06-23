@@ -1,0 +1,14 @@
+<idea-plugin>
+    <!-- PHP-specific tool registrations - only loaded when PHP plugin is available -->
+    <extensions defaultExtensionNs="com.intellij.mcpServer">
+        
+        <!-- PHP AST Tools - enabled when PHP plugin is available -->
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpFileAstTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodDetailsTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.SuggestPhpBreakpointLinesTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpMethodComplexityTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.DetectPhpCodePatternsTool"/>
+        <mcpTool implementation="ai.voitta.jetbrains.ast.php.GetPhpClassHierarchyTool"/>
+        
+    </extensions>
+</idea-plugin>

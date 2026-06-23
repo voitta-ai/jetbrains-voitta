@@ -13,45 +13,34 @@
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
-        Enhanced MCP tools for AST analysis and debug inspection.<br>
-        <em>Provides advanced debugging tools with rich variable inspection, full stack trace support, AST analysis, and code pattern detection for Java projects.</em>
+        Enhanced MCP tools for AST analysis and debug inspection supporting both Java and PHP.<br>
+        <em>Provides advanced debugging tools with rich variable inspection, full stack trace support, AST analysis, and code pattern detection for Java and PHP projects.</em>
     ]]></description>
 
     <!-- Product and plugin compatibility requirements.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.java</depends>
+    <depends optional="true" config-file="java-support.xml">com.intellij.modules.java</depends>
+    <depends optional="true" config-file="php-support.xml">com.jetbrains.php</depends>
     <depends>com.intellij.mcpServer</depends>
 
     <extensions defaultExtensionNs="com.intellij.mcpServer">
         
-        <!-- Enhanced Debug Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetCurrentStackTraceTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSessionInfoTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetDebugSnapshotTool"/>
-        
-        <!-- Variable Evaluation Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.debug.EvaluateExpressionTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.debug.GetFrameVariablesTool"/>
-        
-        <!-- Java AST Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetJavaFileAstTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetClassHierarchyTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodComplexityTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.DetectCodePatternsTool"/>
-        
-        <!-- Enhanced Method Analysis Tools -->
-        <mcpTool implementation="ai.voitta.jetbrains.ast.SuggestBreakpointLinesTool"/>
-        <mcpTool implementation="ai.voitta.jetbrains.ast.GetMethodDetailsTool"/>
-        
-        <!-- Navigation Tools -->
+        <!-- Language-agnostic navigation tools -->
         <mcpTool implementation="ai.voitta.jetbrains.ast.GetSymbolAtPositionTool"/>
         <mcpTool implementation="ai.voitta.jetbrains.ast.FindAllReferencesTool"/>
+        
+        <!-- NOTE: Language-specific tools are registered in java-support.xml and php-support.xml -->
+        
     </extensions>
 
     <!-- Extension points defined by the plugin.
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
-
+        <!-- MCP Server initialization on startup -->
+        <postStartupActivity implementation="ai.voitta.jetbrains.startup.McpServerInitializer"/>
+        
+        <!-- MCP Health check REST endpoint -->
+        <restService implementation="ai.voitta.jetbrains.startup.McpHealthCheckService"/>
     </extensions>
 </idea-plugin>
