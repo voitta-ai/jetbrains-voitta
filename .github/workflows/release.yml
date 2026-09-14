@@ -25,9 +25,35 @@ jobs:
         env:
           BASE: ${{ github.base_ref }}
         run: |
+          set -euo pipefail
           git fetch --no-tags --depth=1 origin "$BASE"
-          old=$(git show "FETCH_HEAD:$VERSION_FILE" | grep -oE '^version = "[^"]+"' | grep -oE '[0-9][^"]*')
           new=$(grep -oE '^version = "[^"]+"' "$VERSION_FILE" | grep -oE '[0-9][^"]*')
+          semver_re='^[0-9]+\.[0-9]+\.[0-9]+$'
+
+          # Bootstrap: base branch predates this version file entirely.
+          if git cat-file -e "FETCH_HEAD:$VERSION_FILE" 2>/dev/null; then
+            old=$(git show "FETCH_HEAD:$VERSION_FILE" | grep -oE '^version = "[^"]+"' | grep -oE '[0-9][^"]*')
+          else
+            old=""
+          fi
+          if [ -z "$old" ]; then
+            echo "Bootstrap: no $VERSION_FILE on $BASE; accepting $new."
+            exit 0
+          fi
+
+          # Base version is not plain semver (e.g. "1.0-SNAPSHOT"): sort -V's
+          # ordering is unreliable there (a trailing "-SNAPSHOT" sorts after
+          # the plain release). Treat this as a bootstrap too - any valid
+          # semver on the PR side is the intended reset and passes.
+          if ! [[ "$old" =~ $semver_re ]]; then
+            if [[ "$new" =~ $semver_re ]]; then
+              echo "Bootstrap: base version '$old' is not plain semver; accepting '$new'."
+              exit 0
+            fi
+            echo "::error::$new is not a valid semver (major.minor.patch)."
+            exit 1
+          fi
+
           if [ "$old" = "$new" ]; then
             echo "::error::$VERSION_FILE version is still $old - bump it."
             exit 1
@@ -51,6 +77,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           version=$(grep -oE '^version = "[^"]+"' "$VERSION_FILE" | grep -oE '[0-9][^"]*')
           if git rev-parse -q --verify "refs/tags/v$version" >/dev/null; then
             echo "v$version is already tagged; nothing to release."
